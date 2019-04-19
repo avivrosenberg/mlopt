@@ -1,6 +1,5 @@
 import math
 import sys
-import collections
 import multiprocessing as mp
 
 import numpy as np
@@ -9,32 +8,16 @@ import tqdm
 
 import hw1.data as hw1data
 import hw1.optimizers as hw1opt
-
-ExperimentConfig = collections.namedtuple(
-    'ExperimentConfig',
-    ['name', 'n', 'd', 'smax', 'smin', 'sol_mu', 'sol_std',
-     'n_iter', 'n_repeats'],
-    defaults=[1024, 4, 5, 0.5, 100, 10, 100_0, 2]
-)
-
-ExperimentResults = collections.namedtuple(
-    'ExperimentResults', ['config', 'results_map']
-)
+import hw1.config as hw1cfg
+from hw1.config import ExperimentConfig, ExperimentResults
 
 
-def run_all_experiments():
-    configurations = [
-        # Positive definite with High, medium and low condition number
-        ExperimentConfig(name='PD HC', smax=5, smin=0.1),
-        ExperimentConfig(name='PD MC', smax=5, smin=0.5),
-        ExperimentConfig(name='PD LC', smax=5, smin=1.0),
-        # Positive semi-definite
-        ExperimentConfig(name='PSD', smax=5, smin=0),
-    ]
-
+def run_all_experiments(configurations, parallel=False):
     # Run configuration on multiple processes
-    mppool = mp.Pool()
-    config_results = mppool.map(run_configuration, configurations)
+    if parallel:
+        config_results = mp.Pool().map(run_configuration, configurations)
+    else:
+        config_results = [run_configuration(cfg) for cfg in configurations]
 
     return config_results
 
@@ -42,7 +25,7 @@ def run_all_experiments():
 def run_configuration(cfg: ExperimentConfig):
     # run_data will hold a matrix of run results, per optimizer
     run_data = {}
-    for k in range(cfg.n_repeats):
+    for k in tqdm.tqdm(range(cfg.n_repeats), file=sys.stdout, desc=cfg.name):
         single_exp_results = single_experiment(cfg)
         for opt_name, losses in single_exp_results.items():
             opt_results = run_data.get(opt_name)
@@ -57,6 +40,9 @@ def run_configuration(cfg: ExperimentConfig):
         means = np.mean(losses, axis=0)
         sterr = np.std(losses, axis=0) / math.sqrt(losses.shape[1])
         plot_data[opt_name] = np.array([means, sterr])
+
+    final_losses = {k: f'{v[0, -1]:.5f}' for k, v in plot_data.items()}
+    print(f'{cfg.name}: final avg. loss={final_losses}')
 
     return ExperimentResults(config=cfg, results_map=plot_data)
 
@@ -99,17 +85,19 @@ def single_experiment(cfg: ExperimentConfig):
     x0 = np.zeros(cfg.d)
     optimizers = {
         'PGD Non-smooth':
-            hw1opt.GradientDescent(x0, stepsize_nonsmooth(), grad_fn),
+            hw1opt.GradientDescent(x0, stepsize_gen=stepsize_nonsmooth(),
+                                   grad_fn=grad_fn, max_iter=cfg.n_iter),
         'PGD Smooth':
-            hw1opt.GradientDescent(x0, stepsize_smooth(), grad_fn),
+            hw1opt.GradientDescent(x0, stepsize_gen=stepsize_smooth(),
+                                   grad_fn=grad_fn, max_iter=cfg.n_iter),
     }
 
     results = {}
-    for name, opt in optimizers.items():
+    for name, optimizer in optimizers.items():
         losses = np.zeros(cfg.n_iter)
 
-        for t in tqdm.tqdm(range(cfg.n_iter), file=sys.stdout):
-            xt = next(opt)
+        # Run single optimizer
+        for t, xt in enumerate(optimizer):
             losses[t] = loss_fn(xt)
 
         results[name] = losses
@@ -117,17 +105,5 @@ def single_experiment(cfg: ExperimentConfig):
     return results
 
 
-def single_run(optimizer, loss_fn, n_iter=100_000):
-    losses = np.zeros(n_iter)
-
-    for t in tqdm.tqdm(range(n_iter), file=sys.stdout):
-        xt = next(optimizer)
-        losses[t] = loss_fn(xt)
-
-    print(f'final loss={losses[-1]:.5f}')
-    return losses
-
-
 if __name__ == '__main__':
-    results = run_all_experiments()
-    print(results)
+    results = run_all_experiments(hw1cfg.DEFAULT_CONFIGURATIONS)
