@@ -13,15 +13,20 @@ import hw1.optimizers as hw1opt
 ExperimentConfig = collections.namedtuple(
     'ExperimentConfig',
     field_names=['name', 'n', 'd', 'smax', 'smin', 'sol_mu', 'sol_std',
-                 'n_iter', 'n_repeat', 'fullrank'],
-    defaults=[1024, 4, 5, 0.5, 100, 10, 100_000, 20, True]
+                 'n_iter', 'n_repeat'],
+    defaults=[1024, 4, 5, 0.5, 100, 10, 100_000, 20]
 )
 
 
 def run_all_experiments():
     configurations = [
-        ExperimentConfig(name='Default PD', fullrank=True),
-        # ExperimentConfig(name='Default PSD', fullrank=False),
+        # Positive definite with High, medium and low condition number
+        ExperimentConfig(name='PD HC', smax=5, smin=0.1),
+        ExperimentConfig(name='PD MC', smax=5, smin=0.5),
+        ExperimentConfig(name='PD LC', smax=5, smin=1.0),
+
+        # Positive semi-definite
+        ExperimentConfig(name='PSD', smax=5, smin=0),
     ]
 
     cfg_plot_data = {}
