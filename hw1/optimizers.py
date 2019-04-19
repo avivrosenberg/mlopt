@@ -1,3 +1,5 @@
+import math
+
 import numpy as np
 
 
@@ -5,21 +7,32 @@ class Optimizer(object):
     """
     Represents an optimization algorithm.
     """
-    def __init__(self, x0, stepsize_gen, grad_fn, project_fn=None):
+    def __init__(self, x0, stepsize_gen, grad_fn,
+                 max_iter=math.inf, project_fn=None):
         """
         Initializes the algorithm.
         :param x0:
         :param stepsize_gen:
         :param grad_fn:
+        :param max_iter:
         :param project_fn:
         """
         self.xt = x0
         self.stepsize_gen = stepsize_gen
         self.grad_fn = grad_fn
+        self.max_iter = max_iter
         self.project_fn = project_fn
 
+        self.t = 0
+
     def __next__(self):
-        return self.step()
+        self.xt = self.step()
+
+        self.t += 1
+        if self.t > self.max_iter:
+            raise StopIteration()
+
+        return self.xt
 
     def __iter__(self):
         return self
@@ -29,8 +42,8 @@ class Optimizer(object):
 
 
 class GradientDescent(Optimizer):
-    def __init__(self, x0, stepsize_gen, grad_fn, project_fn=None):
-        super().__init__(x0, stepsize_gen, grad_fn, project_fn)
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
 
     def step(self):
         eta = next(self.stepsize_gen)
@@ -40,5 +53,4 @@ class GradientDescent(Optimizer):
         if self.project_fn is not None:
             xnew = self.project_fn(xnew)
 
-        self.xt = xnew
         return xnew
