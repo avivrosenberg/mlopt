@@ -1,32 +1,32 @@
 import math
-import sys
 import multiprocessing as mp
+import sys
 
 import numpy as np
 import numpy.linalg as la
 import tqdm
 
+import hw1.config as hw1cfg
 import hw1.data as hw1data
 import hw1.optimizers as hw1opt
-import hw1.config as hw1cfg
 from hw1.config import ExperimentConfig, ExperimentResults
 
 
-def run_all_experiments(configurations, parallel=False):
+def run_configurations(configurations, parallel=False):
     # Run configuration on multiple processes
     if parallel:
-        config_results = mp.Pool().map(run_configuration, configurations)
+        config_results = mp.Pool().map(run_single_configuration, configurations)
     else:
-        config_results = [run_configuration(cfg) for cfg in configurations]
+        config_results = [run_single_configuration(cfg) for cfg in configurations]
 
     return config_results
 
 
-def run_configuration(cfg: ExperimentConfig):
+def run_single_configuration(cfg: ExperimentConfig):
     # run_data will hold a matrix of run results, per optimizer
     run_data = {}
     for k in tqdm.tqdm(range(cfg.n_repeats), file=sys.stdout, desc=cfg.name):
-        single_exp_results = single_experiment(cfg)
+        single_exp_results = run_single_experiment(cfg)
         for opt_name, losses in single_exp_results.items():
             opt_results = run_data.get(opt_name)
             if opt_results is None:
@@ -47,7 +47,7 @@ def run_configuration(cfg: ExperimentConfig):
     return ExperimentResults(config=cfg, results_map=plot_data)
 
 
-def single_experiment(cfg: ExperimentConfig):
+def run_single_experiment(cfg: ExperimentConfig):
     """
     A single experiment means run each algorithm once with the same data
     """
@@ -106,4 +106,4 @@ def single_experiment(cfg: ExperimentConfig):
 
 
 if __name__ == '__main__':
-    results = run_all_experiments(hw1cfg.DEFAULT_CONFIGURATIONS)
+    results = run_configurations(hw1cfg.DEFAULT_CONFIGURATIONS)
