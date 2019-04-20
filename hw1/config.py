@@ -1,6 +1,9 @@
 import os
 import json
+import pickle
 import collections
+
+from typing import List
 
 ExperimentConfig = collections.namedtuple(
     'ExperimentConfig',
@@ -25,9 +28,9 @@ DEFAULT_CONFIGURATIONS = [
 DEFAULTS_FILENAME = 'cfg/defaults.json'
 
 
-def dump_configs(configs, filename):
+def dump_configs(configs: List[ExperimentConfig], filename: str):
     """
-    Writes configuration to file.
+    Writes configuration to file (json).
     :param configs: A list/tuple of ExperimentConfig objects.
     :param filename: Filename to write to.
     """
@@ -37,7 +40,7 @@ def dump_configs(configs, filename):
         json.dump(config_dicts, file, indent=4)
 
 
-def load_configs(filename):
+def load_configs(filename: str) -> List[ExperimentConfig]:
     """
     Reads a list of ExperimentConfigs from file.
     :param filename: The file to read from.
@@ -45,6 +48,26 @@ def load_configs(filename):
     with open(filename, 'r') as file:
         config_dicts = json.load(file)
         return [ExperimentConfig(**d) for d in config_dicts]
+
+
+def dump_results(results: List[ExperimentResults], filename: str):
+    """
+    Store results to a file (binary).
+    :param results: List/tuple of ExperimentResults.
+    :param filename: Path of filename to write.
+    """
+    with open(filename, 'wb') as file:
+        pickle.dump(results, file)
+
+
+def load_results(filename: str) -> List[ExperimentResults]:
+    """
+    Load ExperimentResults from a file.
+    :param filename: Path to file.
+    :return: The results loaded from the file.
+    """
+    with open(filename, 'rb') as file:
+        return pickle.load(file)
 
 
 dump_configs(DEFAULT_CONFIGURATIONS,
