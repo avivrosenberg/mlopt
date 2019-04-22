@@ -5,6 +5,7 @@ import datetime as dt
 
 import hw1.config as hw1cfg
 import hw1.experiments as hw1exp
+import hw1.plots as hw1plt
 
 
 def parse_cli():
@@ -53,11 +54,15 @@ def run_multi(cfg_file, out_dir, run_parallel=False, **kw):
     results = hw1exp.run_configurations(configurations, parallel=run_parallel)
 
     timestamp = dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    results_filename = os.path.join(out_dir, timestamp + '.pickle')
+    out_dir = os.path.join(out_dir, timestamp)
+    results_filename = os.path.join(out_dir, 'results.pickle')
 
     print(f'>>> Writing results to {results_filename}')
     os.makedirs(out_dir, exist_ok=True)
     hw1cfg.dump_results(results, results_filename)
+
+    print(f'>>> Plotting results')
+    hw1plt.plot_experiments(results, out_dir)
 
 
 if __name__ == '__main__':
