@@ -54,3 +54,26 @@ class GradientDescent(Optimizer):
             xnew = self.project_fn(xnew)
 
         return xnew
+
+
+class NesterovAGM(Optimizer):
+    def __init__(self, beta, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.beta = beta
+        self.yt = self.xt
+
+    def step(self):
+        eta = next(self.stepsize_gen)
+
+        ztp1 = (1-eta) * self.yt + eta * self.xt
+        grad = self.grad_fn(ztp1)
+
+        xtp1 = self.xt - 1/(self.beta * eta) * grad
+        ytp1 = (1-eta) * self.yt + eta * xtp1
+
+        self.xt = xtp1
+        self.yt = ytp1
+        return xtp1
+
+
+
