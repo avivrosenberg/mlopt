@@ -38,7 +38,7 @@ def run_single_configuration(cfg: ExperimentConfig):
     plot_data = {}
     for opt_name, losses in run_data.items():
         means = np.mean(losses, axis=0)
-        sterr = np.std(losses, axis=0) / math.sqrt(losses.shape[1])
+        sterr = np.std(losses, axis=0) / math.sqrt(losses.shape[0])
         plot_data[opt_name] = np.array([means, sterr])
 
     final_losses = {k: f'{v[0, -1]:.5f}' for k, v in plot_data.items()}
