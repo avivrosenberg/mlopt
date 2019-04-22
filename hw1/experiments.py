@@ -81,6 +81,12 @@ def run_single_experiment(cfg: ExperimentConfig):
         while True:
             yield 1 / beta
 
+    def stepsize_agm():
+        eta = 1
+        while True:
+            yield eta
+            eta = 0.5 * (-eta**2 + math.sqrt(eta**4 + 4*eta**2))
+
     # Optimizers
     x0 = np.zeros(cfg.d)
     optimizers = {
@@ -90,6 +96,9 @@ def run_single_experiment(cfg: ExperimentConfig):
         'PGD Smooth':
             hw1opt.GradientDescent(x0, stepsize_gen=stepsize_smooth(),
                                    grad_fn=grad_fn, max_iter=cfg.n_iter),
+        'AGM':
+            hw1opt.NesterovAGM(beta, x0, stepsize_gen=stepsize_agm(),
+                               grad_fn=grad_fn, max_iter=cfg.n_iter)
     }
 
     results = {}
