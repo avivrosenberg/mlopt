@@ -12,14 +12,16 @@ EXPERIMENT_PARAMS = dict(
     smax='Largest singular value', smin='Smallest singular value',
     sol_mu='Mean of normal distribution from which x* is sampled',
     sol_std='St.dev. of normal distribution from which x* is sampled',
-    n_iter='Number of iterations (optimizer steps) to run',
+    n_iter='Maximal number of iterations (optimizer steps) to run without '
+           'convergence',
+    eps='Difference between current and ideal loss considered as convergence',
     n_repeats='Times to repeat the experiment with newly generated data'
 )
 
 ExperimentConfig = collections.namedtuple(
     'ExperimentConfig',
     EXPERIMENT_PARAMS.keys(),
-    defaults=[2**11, 2**5, 5, 0.5, 100, 10, 1000, 10],
+    defaults=[2**11, 2**5, 5, 0.5, 100, 10, 1000, 0.01, 10],
 )
 
 ExperimentResults = collections.namedtuple(
