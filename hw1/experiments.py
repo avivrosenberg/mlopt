@@ -82,9 +82,9 @@ def run_single_experiment(cfg: ExperimentConfig):
         eta = 1
         while True:
             yield eta
-            eta = 0.5 * (-eta**2 + math.sqrt(eta**4 + 4*eta**2))
+            eta = 0.5 * (-eta ** 2 + math.sqrt(eta ** 4 + 4 * eta ** 2))
 
-    # Optimizers
+    # Optimizers for experiment
     x0 = np.zeros(cfg.d)
     optimizers = {
         'PGD Non-smooth':
@@ -94,9 +94,13 @@ def run_single_experiment(cfg: ExperimentConfig):
             hw1opt.GradientDescent(x0, stepsize_gen=stepsize_smooth(),
                                    grad_fn=grad_fn, max_iter=cfg.n_iter),
         'AGM':
-            hw1opt.NesterovAGM(beta, x0, stepsize_gen=stepsize_agm(),
-                               grad_fn=grad_fn, max_iter=cfg.n_iter)
+            hw1opt.NesterovAGM(0, beta, x0, stepsize_gen=stepsize_agm(),
+                               grad_fn=grad_fn, max_iter=cfg.n_iter),
     }
+    if alpha > 0:
+        optimizers['AGM Strongly Convex'] = \
+            hw1opt.NesterovAGM(alpha, beta, x0, stepsize_gen=stepsize_agm(),
+                               grad_fn=grad_fn, max_iter=cfg.n_iter)
 
     results = {}
     for name, optimizer in optimizers.items():
