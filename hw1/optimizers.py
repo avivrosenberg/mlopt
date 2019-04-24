@@ -1,7 +1,5 @@
 import math
 
-import numpy as np
-
 
 class Optimizer(object):
     """
@@ -68,7 +66,10 @@ class NesterovAGM(Optimizer):
         ztp1 = (1-eta) * self.yt + eta * self.xt
         grad = self.grad_fn(ztp1)
 
-        xtp1 = self.xt - 1/(self.beta * eta) * grad
+        xtp1 = self.xt - 1.0/(self.beta * eta) * grad
+        if self.project_fn is not None:
+            xtp1 = self.project_fn(xtp1)
+
         ytp1 = (1-eta) * self.yt + eta * xtp1
 
         self.xt = xtp1
