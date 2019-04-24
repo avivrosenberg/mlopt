@@ -19,9 +19,9 @@ def test_generate_dataset():
         n, d, smax, smin = testcase
         noise_std = 0.001
 
-        A, b, xs = hw1data.generate_dataset(n_samples=n, n_features=d,
-                                            smax=smax, smin=smin,
-                                            noise_std=noise_std)
+        A, b, xs = hw1data.generate_linear_regression(n=n, d=d,
+                                                      smax=smax, smin=smin,
+                                                      noise_std=noise_std)
         # Test dimensions
         assert A.shape == (n, d)
         assert b.shape == (n,)
