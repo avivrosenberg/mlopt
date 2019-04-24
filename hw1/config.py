@@ -36,7 +36,7 @@ def dump_configs(configs: List[ExperimentConfig], filename: str):
     """
     config_dicts = [cfg._asdict() for cfg in configs]
 
-    with open(filename, 'w') as file:
+    with open(filename, 'w', encoding='utf-8') as file:
         json.dump(config_dicts, file, indent=4)
 
 
@@ -45,7 +45,7 @@ def load_configs(filename: str) -> List[ExperimentConfig]:
     Reads a list of ExperimentConfigs from file.
     :param filename: The file to read from.
     """
-    with open(filename, 'r') as file:
+    with open(filename, 'r', encoding='utf-8') as file:
         config_dicts = json.load(file)
         return [ExperimentConfig(**d) for d in config_dicts]
 
