@@ -5,11 +5,21 @@ import collections
 
 from typing import List
 
+EXPERIMENT_PARAMS = dict(
+    name='Configuration name',
+    n='Number of observations in dataset (rows of A)',
+    d='Number of features per observation (columns of A)',
+    smax='Largest singular value', smin='Smallest singular value',
+    sol_mu='Mean of normal distribution from which x* is sampled',
+    sol_std='St.dev. of normal distribution from which x* is sampled',
+    n_iter='Number of iterations (optimizer steps) to run',
+    n_repeats='Times to repeat the experiment with newly generated data'
+)
+
 ExperimentConfig = collections.namedtuple(
     'ExperimentConfig',
-    ['name', 'n', 'd', 'smax', 'smin', 'sol_mu', 'sol_std',
-     'n_iter', 'n_repeats'],
-    defaults=[2**11, 2**5, 5, 0.5, 100, 10, 1000, 10]
+    EXPERIMENT_PARAMS.keys(),
+    defaults=[2**11, 2**5, 5, 0.5, 100, 10, 1000, 10],
 )
 
 ExperimentResults = collections.namedtuple(

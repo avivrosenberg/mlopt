@@ -51,9 +51,6 @@ def run_single_experiment(cfg: ExperimentConfig):
     """
     A single experiment means run each algorithm once with the same data
     """
-    # Generate data for the experiment
-    # n, d, smax, smin = 1024, 3, 5, 0.5
-    # sol_mu, sol_std = 100, 10
 
     A, b, xs = hw1data.generate_linear_regression(**cfg._asdict())
     alpha = cfg.smin ** 2
