@@ -15,9 +15,11 @@ from hw1.config import ExperimentConfig, ExperimentResults
 def run_configurations(configurations, parallel=False):
     # Run configuration on multiple processes
     if parallel:
-        config_results = mp.Pool().map(run_single_configuration, configurations)
+        config_results = mp.Pool().map(run_single_configuration,
+                                       configurations)
     else:
-        config_results = [run_single_configuration(cfg) for cfg in configurations]
+        config_results = [run_single_configuration(cfg) for cfg in
+                          configurations]
 
     return config_results
 
@@ -37,12 +39,10 @@ def run_single_configuration(cfg: ExperimentConfig):
     # Generate data for plotting: just mean and std err, per optimizer
     plot_data = {}
     for opt_name, losses in run_data.items():
+        # losses = losses[:, ~np.all(np.isnan(losses), axis=0)]
         means = np.mean(losses, axis=0)
         sterr = np.std(losses, axis=0) / math.sqrt(losses.shape[0])
         plot_data[opt_name] = np.array([means, sterr])
-
-    final_losses = {k: f'{v[0, -1]:.5f}' for k, v in plot_data.items()}
-    print(f'{cfg.name}: final avg. loss={final_losses}')
 
     return ExperimentResults(config=cfg, results_map=plot_data)
 
@@ -102,15 +102,22 @@ def run_single_experiment(cfg: ExperimentConfig):
             hw1opt.NesterovAGM(alpha, beta, x0, stepsize_gen=stepsize_agm(),
                                grad_fn=grad_fn, max_iter=cfg.n_iter)
 
+    loss_x0 = loss_fn(x0)
+    loss_xs = loss_fn(xs)
     results = {}
+
     for name, optimizer in optimizers.items():
-        losses = np.zeros(cfg.n_iter)
+        losses = np.full(cfg.n_iter + 1, np.nan)
+        losses[0] = loss_x0
 
         # Run single optimizer
-        for t, xt in enumerate(optimizer):
-            losses[t] = loss_fn(xt)
+        for t, xt in enumerate(optimizer, start=1):
+            loss_xt = loss_fn(xt)
+            losses[t] = math.fabs(loss_xt - loss_xs)
+            if losses[t] < cfg.eps:
+                break
 
-        results[name] = losses
+        results[name] = losses[0:-1]
 
     return results
 
