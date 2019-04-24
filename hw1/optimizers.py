@@ -5,6 +5,7 @@ class Optimizer(object):
     """
     Represents an optimization algorithm.
     """
+
     def __init__(self, x0, stepsize_gen, grad_fn,
                  max_iter=math.inf, project_fn=None):
         """
@@ -27,7 +28,7 @@ class Optimizer(object):
         self.xt = self.step()
 
         self.t += 1
-        if self.t > self.max_iter:
+        if self.t >= self.max_iter:
             raise StopIteration()
 
         return self.xt
