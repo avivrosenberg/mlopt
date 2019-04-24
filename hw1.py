@@ -7,6 +7,9 @@ import hw1.config as hw1cfg
 import hw1.experiments as hw1exp
 import hw1.plots as hw1plt
 
+DEFAULT_CFG_FILE = os.path.join('hw1', hw1cfg.DEFAULTS_FILENAME)
+DEFAULT_OUT_DIR = os.path.join('.', 'out')
+
 
 def parse_cli():
     def is_dir(dirname):
@@ -22,39 +25,43 @@ def parse_cli():
             return filename
 
     p = argparse.ArgumentParser(description='MLOPT hw1')
-    sp = p.add_subparsers(help='Sub-command help')
+    sp = p.add_subparsers(dest='subcmd', help='Sub-command help')
 
     # Multi-experiment run
     sp_multi = sp.add_parser('multi',
                             help='Run multiple experiments based on config '
-                                 'file')
+                                 'file (default if no sub-command given)')
     sp_multi.set_defaults(subcmd_fn=run_multi)
     sp_multi.add_argument('--cfg-file', '-i', type=is_file,
-                         help='experiment configurations file (json)',
-                         required=True)
+                          help='experiment configurations file (json)',
+                          default=DEFAULT_CFG_FILE, required=False)
     sp_multi.add_argument('--out-dir', '-o', type=str,
                          help='Output folder for results and plots',
-                         default='./out', required=False)
-    sp_multi.add_argument('--run-parallel', action='store_true',
+                         default=DEFAULT_OUT_DIR, required=False)
+    sp_multi.add_argument('--parallel', action='store_true',
                           help='Run experiments in parallel processes')
 
     parsed = p.parse_args()
-    if 'subcmd_fn' not in parsed:
-        p.print_help()
-        sys.exit()
+    if parsed.subcmd is None:
+        parsed.subcmd_fn = run_multi
+        # p.print_help()
+        # sys.exit()
     return parsed
 
 
-def run_multi(cfg_file, out_dir, run_parallel=False, **kw):
-    configurations = hw1cfg.load_configs(cfg_file)
+def run_multi(cfg_file=DEFAULT_CFG_FILE, out_dir=DEFAULT_OUT_DIR,
+              parallel=False, **kw):
+    timestamp = dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    out_dir = os.path.join(out_dir, timestamp)
 
+    print(f'>>> Multi-experiment run, cfg_file={cfg_file}, out_dir={out_dir}')
+
+    configurations = hw1cfg.load_configs(cfg_file)
     print(f'>>> Running {len(configurations)} configurations: '
           f'{[c.name for c in configurations]}')
 
-    results = hw1exp.run_configurations(configurations, parallel=run_parallel)
+    results = hw1exp.run_configurations(configurations, parallel)
 
-    timestamp = dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    out_dir = os.path.join(out_dir, timestamp)
     results_filename = os.path.join(out_dir, 'results.pickle')
 
     print(f'>>> Writing results to {results_filename}')
