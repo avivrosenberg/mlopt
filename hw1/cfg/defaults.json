@@ -1,46 +1,46 @@
 [
     {
         "name": "PD HC",
-        "n": 1024,
-        "d": 4,
+        "n": 2048,
+        "d": 32,
         "smax": 5,
         "smin": 0.1,
         "sol_mu": 100,
         "sol_std": 10,
-        "n_iter": 10000,
+        "n_iter": 1000,
         "n_repeats": 10
     },
     {
         "name": "PD MC",
-        "n": 1024,
-        "d": 4,
+        "n": 2048,
+        "d": 32,
         "smax": 5,
         "smin": 0.5,
         "sol_mu": 100,
         "sol_std": 10,
-        "n_iter": 10000,
+        "n_iter": 1000,
         "n_repeats": 10
     },
     {
         "name": "PD LC",
-        "n": 1024,
-        "d": 4,
+        "n": 2048,
+        "d": 32,
         "smax": 5,
         "smin": 1.0,
         "sol_mu": 100,
         "sol_std": 10,
-        "n_iter": 10000,
+        "n_iter": 1000,
         "n_repeats": 10
     },
     {
         "name": "PSD",
-        "n": 1024,
-        "d": 4,
+        "n": 2048,
+        "d": 32,
         "smax": 5,
         "smin": 0,
         "sol_mu": 100,
         "sol_std": 10,
-        "n_iter": 10000,
+        "n_iter": 1000,
         "n_repeats": 10
     }
 ]

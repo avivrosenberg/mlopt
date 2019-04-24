@@ -9,7 +9,7 @@ ExperimentConfig = collections.namedtuple(
     'ExperimentConfig',
     ['name', 'n', 'd', 'smax', 'smin', 'sol_mu', 'sol_std',
      'n_iter', 'n_repeats'],
-    defaults=[1024, 4, 5, 0.5, 100, 10, 100_00, 10]
+    defaults=[2**11, 2**5, 5, 0.5, 100, 10, 1000, 10]
 )
 
 ExperimentResults = collections.namedtuple(
