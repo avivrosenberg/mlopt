@@ -56,26 +56,61 @@ class GradientDescent(Optimizer):
 
 
 class NesterovAGM(Optimizer):
-    def __init__(self, beta, *args, **kwargs):
+    def __init__(self, alpha=0., beta=1., *args, **kwargs):
         super().__init__(*args, **kwargs)
+        assert 0 <= alpha <= beta
+
+        self.alpha = alpha
         self.beta = beta
         self.yt = self.xt
 
-    def step(self):
-        eta = next(self.stepsize_gen)
+        if alpha > 0:
+            self.step = self.step_strongly_convex
+        else:
+            self.step = self.step_non_strongly_convex
 
-        ztp1 = (1-eta) * self.yt + eta * self.xt
-        grad = self.grad_fn(ztp1)
+    def step_strongly_convex(self):
 
-        xtp1 = self.xt - 1.0/(self.beta * eta) * grad
+        sub_max_iter = math.ceil(math.sqrt(128 * self.beta / 9 / self.alpha))
+
+        sub_opt = NesterovAGM(alpha=0, beta=self.beta,
+                              x0=self.xt,
+                              stepsize_gen=NesterovAGM.optimal_stepsize_generator(),
+                              grad_fn=self.grad_fn,
+                              project_fn=self.project_fn,
+                              max_iter=sub_max_iter)
+
+        for xtp1 in sub_opt:
+            pass
+
         if self.project_fn is not None:
             xtp1 = self.project_fn(xtp1)
 
-        ytp1 = (1-eta) * self.yt + eta * xtp1
+        self.xt = xtp1
+        return xtp1
+
+    def step_non_strongly_convex(self):
+        eta = next(self.stepsize_gen)
+
+        ztp1 = (1 - eta) * self.yt + eta * self.xt
+        grad = self.grad_fn(ztp1)
+
+        xtp1 = self.xt - 1.0 / (self.beta * eta) * grad
+        if self.project_fn is not None:
+            xtp1 = self.project_fn(xtp1)
+
+        ytp1 = (1 - eta) * self.yt + eta * xtp1
 
         self.xt = xtp1
         self.yt = ytp1
         return xtp1
 
-
-
+    @staticmethod
+    def optimal_stepsize_generator():
+        """
+        :return: A generator for the optimal step size of AGM
+        """
+        eta = 1
+        while True:
+            yield eta
+            eta = 0.5 * (-eta**2 + math.sqrt(eta**4 + 4*eta**2))
