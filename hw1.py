@@ -32,7 +32,7 @@ def parse_cli():
                    help='Output folder for results and plots',
                    default=DEFAULT_OUT_DIR, required=False)
 
-    sp = p.add_subparsers(dest='subcmd', help='Sub-command help')
+    sp = p.add_subparsers(dest='subcmd', help='Sub-commands')
 
     # Multi-experiment run
     sp_multi = sp.add_parser('multi',
