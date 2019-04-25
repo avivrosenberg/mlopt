@@ -48,6 +48,10 @@ def plot_experiment(results: ExperimentResults, out_dir):
         ax.plot(t_axis, mean, label=run_name, linestyle='--', linewidth=0.7)
         ax.fill_between(t_axis, mean-sterr, mean+sterr, alpha=0.3)
 
+    t_axis = np.arange(1, results.config.n_iter+1)
+    eps = np.full_like(t_axis, results.config.eps, dtype=np.float)
+    ax.plot(t_axis, eps, 'k:', label=rf'$\epsilon=${results.config.eps}')
+
     ax.set_xlabel(r'$t$')
     ax.set_ylabel(r'$\vert f(\mathbf{x_t}) - f(\mathbf{x^{*}})\vert$')
     kappa = str(cfg.smax/cfg.smin) if cfg.smin > 0 else r'\infty'
