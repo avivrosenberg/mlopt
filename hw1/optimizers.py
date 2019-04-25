@@ -10,11 +10,14 @@ class Optimizer(object):
                  max_iter=math.inf, project_fn=None):
         """
         Initializes the algorithm.
-        :param x0:
-        :param stepsize_gen:
-        :param grad_fn:
-        :param max_iter:
-        :param project_fn:
+        :param x0: Starting point.
+        :param stepsize_gen: A generator returning a new step size each time.
+        :param grad_fn: A function that given a point, computes the gradient of
+        the minimization target at that point.
+        :param max_iter: Max number of iterations to run when iterating over
+        this instance.
+        :param project_fn: A function that given a point x, projects it onto
+        some set, returning a new point xp.
         """
         self.xt = x0
         self.stepsize_gen = stepsize_gen
@@ -54,6 +57,27 @@ class GradientDescent(Optimizer):
 
         return xnew
 
+    @staticmethod
+    def optimal_stepsize_generator_nonsmooth(D, G):
+        """
+        :param D: Diameter of solution set.
+        :param G: Upper bound of gradient.
+        :return: A generator for the optimal stepsize of nonsmooth PGD.
+        """
+        t = 0
+        while True:
+            t += 1
+            yield D / G / math.sqrt(t)
+
+    @staticmethod
+    def optimal_stepsize_generator_smooth(beta):
+        """
+        :param beta: Smoothness coefficient.
+        :return: A generator for the optimal stepsize of smooth PGD.
+        """
+        while True:
+            yield 1 / beta
+
 
 class NesterovAGM(Optimizer):
     def __init__(self, alpha=0., beta=1., *args, **kwargs):
@@ -70,12 +94,12 @@ class NesterovAGM(Optimizer):
             self.step = self.step_non_strongly_convex
 
     def step_strongly_convex(self):
-
         sub_max_iter = math.ceil(math.sqrt(128 * self.beta / 9 / self.alpha))
+        sub_stepsize_gen = NesterovAGM.optimal_stepsize_generator()
 
         sub_opt = NesterovAGM(alpha=0, beta=self.beta,
                               x0=self.xt,
-                              stepsize_gen=NesterovAGM.optimal_stepsize_generator(),
+                              stepsize_gen=sub_stepsize_gen,
                               grad_fn=self.grad_fn,
                               project_fn=self.project_fn,
                               max_iter=sub_max_iter)
