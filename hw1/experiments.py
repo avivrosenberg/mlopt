@@ -71,7 +71,8 @@ def run_single_experiment(cfg: ExperimentConfig):
     # Calculate problem parameters based on the dataset
     alpha = cfg.smin ** 2
     beta = cfg.smax ** 2
-    R = cfg.sol_mu + 3 * cfg.sol_std  # Assuming solution lies within 3 stds
+    R = cfg.sol_mu * math.sqrt(cfg.d) + 3 * cfg.sol_std  # Assuming solution
+    # lies within 3 stds
     G = (cfg.smax ** 2) * R + cfg.smax * la.norm(b)
     D = 2 * R
 
