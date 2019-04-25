@@ -18,21 +18,23 @@ def plot_from_file(results_filename, out_dir):
     return plot_experiments(results, out_dir)
 
 
-def plot_experiments(results, out_dir):
+def plot_experiments(results, out_dir, **kw):
     """
     Plots experiment results.
     :param results: A list/tuple of ExperimentResults
     :param out_dir: output folder for plots.
     :return: List of filenames written.
     """
-    return [plot_experiment(r, out_dir) for r in results]
+    return [plot_experiment(r, out_dir, **kw) for r in results]
 
 
-def plot_experiment(results: ExperimentResults, out_dir):
+def plot_experiment(results: ExperimentResults, out_dir,
+                    no_plot_title=False, **kw):
     """
     Plots a single experiment's results.
     :param results: An ExperimentResults.
     :param out_dir: output folder for plots.
+    :param no_plot_title: Whether to skip adding a title.
     :return: List of filenames written.
     """
     fig, ax = plt.subplots(1, 1)
@@ -52,16 +54,20 @@ def plot_experiment(results: ExperimentResults, out_dir):
     eps = np.full_like(t_axis, results.config.eps, dtype=np.float)
     ax.plot(t_axis, eps, 'k:', label=rf'$\epsilon=${results.config.eps}')
 
+    if not no_plot_title:
+        kappa = str(cfg.smax/cfg.smin) if cfg.smin > 0 else r'\infty'
+        ax.set_title(rf'{cfg.name}, ($\kappa(A)={kappa}$)')
+
     ax.set_xlabel(r'$t$')
     ax.set_ylabel(r'$\vert f(\mathbf{x_t}) - f(\mathbf{x^{*}})\vert$')
-    kappa = str(cfg.smax/cfg.smin) if cfg.smin > 0 else r'\infty'
-    ax.set_title(rf'{cfg.name}, ($\kappa(A)={kappa}$)')
     ax.grid()
     ax.legend(loc='upper right')
     ax.set_xlim(auto=True)
     ax.set_yscale('log')
     ax.set_xscale('log')
 
-    filename = os.path.join(out_dir, f'{cfg.name}')
+    filename = os.path.join(out_dir, f'{str.replace(cfg.name, " ", "_")}')
     fmt = 'pdf'
-    fig.savefig(f'{filename}.{fmt}', format=fmt)
+    fig.set_size_inches(8*0.8, 6*0.8)
+    fig.savefig(f'{filename}.{fmt}', format=fmt,
+                bbox_inches='tight', pad_inches=0.1)

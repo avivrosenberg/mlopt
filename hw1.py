@@ -31,6 +31,8 @@ def parse_cli():
     p.add_argument('--out-dir', '-o', type=str,
                    help='Output folder for results and plots',
                    default=DEFAULT_OUT_DIR, required=False)
+    p.add_argument('--no-plot-title', action='store_true', required=False,
+                   help='Suppress titles in plots')
 
     sp = p.add_subparsers(dest='subcmd', help='Sub-commands')
 
@@ -87,7 +89,7 @@ def run_multi(cfg_file=DEFAULT_CFG_FILE, out_dir=DEFAULT_OUT_DIR,
     hw1cfg.dump_results(results, results_filename)
 
     print(f'>>> Plotting results')
-    hw1plt.plot_experiments(results, out_dir)
+    hw1plt.plot_experiments(results, out_dir, **kw)
 
 
 def run_single(out_dir=DEFAULT_OUT_DIR, **kw):
@@ -99,7 +101,7 @@ def run_single(out_dir=DEFAULT_OUT_DIR, **kw):
     result = hw1exp.run_single_configuration(exp_config)
 
     print(f'>>> Saving plots to {out_dir}')
-    hw1plt.plot_experiment(result, out_dir)
+    hw1plt.plot_experiment(result, out_dir, **kw)
 
 
 if __name__ == '__main__':
