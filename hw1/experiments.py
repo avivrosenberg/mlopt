@@ -13,13 +13,19 @@ from hw1.config import ExperimentConfig, ExperimentResults
 
 
 def run_configurations(configurations, parallel=False):
-    # Run configuration on multiple processes
+    """
+    Runs a multiple experiments based on a list of configurations.
+    :param configurations: list of configurations to run.
+    :param parallel: Whether to run each configuration concurrently in a
+    separate process.
+    :return: A list of ExperimentResults per configuration.
+    """
     if parallel:
-        config_results = mp.Pool().map(run_single_configuration,
-                                       configurations)
+        config_results = \
+            mp.Pool().map(run_single_configuration, configurations)
     else:
-        config_results = [run_single_configuration(cfg) for cfg in
-                          configurations]
+        config_results = \
+            [run_single_configuration(cfg) for cfg in configurations]
 
     return config_results
 
@@ -52,12 +58,20 @@ def run_single_configuration(cfg: ExperimentConfig):
 def run_single_experiment(cfg: ExperimentConfig):
     """
     A single experiment means run each algorithm once with the same data
+    :param cfg: Configuration parameters of this experiment.
+    :returns: A map from a name of an optimization algorithm to a list of
+    loss values, i.e. the difference between the function value at a current
+    iterate and the function value at the solution point.
     """
 
+    # Generate a single dataset all the optimizers will work with in this
+    # experiment
     A, b, xs = hw1data.generate_linear_regression(**cfg._asdict())
+
+    # Calculate problem parameters based on the dataset
     alpha = cfg.smin ** 2
     beta = cfg.smax ** 2
-    R = cfg.sol_mu + 3 * cfg.sol_std
+    R = cfg.sol_mu + 3 * cfg.sol_std  # Assuming solution lies within 3 stds
     G = (cfg.smax ** 2) * R + cfg.smax * la.norm(b)
     D = 2 * R
 
@@ -70,38 +84,28 @@ def run_single_experiment(cfg: ExperimentConfig):
         return A.T.dot(A.dot(x) - b)
 
     # Step size generators, per optimizer
-    def stepsize_nonsmooth():
-        t = 0
-        while True:
-            t += 1
-            yield D / G / math.sqrt(t)
+    stepsize_nonsmooth = \
+        hw1opt.GradientDescent.optimal_stepsize_generator_nonsmooth(D, G)
+    stepsize_smooth = \
+        hw1opt.GradientDescent.optimal_stepsize_generator_smooth(beta)
+    stepsize_agm = hw1opt.NesterovAGM.optimal_stepsize_generator()
 
-    def stepsize_smooth():
-        while True:
-            yield 1 / beta
-
-    def stepsize_agm():
-        eta = 1
-        while True:
-            yield eta
-            eta = 0.5 * (-eta ** 2 + math.sqrt(eta ** 4 + 4 * eta ** 2))
-
-    # Optimizers for experiment
+    # Create optimizers for experiment
     x0 = np.zeros(cfg.d)
     optimizers = {
         'PGD Non-smooth':
-            hw1opt.GradientDescent(x0, stepsize_gen=stepsize_nonsmooth(),
+            hw1opt.GradientDescent(x0, stepsize_gen=stepsize_nonsmooth,
                                    grad_fn=grad_fn, max_iter=cfg.n_iter),
         'PGD Smooth':
-            hw1opt.GradientDescent(x0, stepsize_gen=stepsize_smooth(),
+            hw1opt.GradientDescent(x0, stepsize_gen=stepsize_smooth,
                                    grad_fn=grad_fn, max_iter=cfg.n_iter),
         'AGM':
-            hw1opt.NesterovAGM(0, beta, x0, stepsize_gen=stepsize_agm(),
+            hw1opt.NesterovAGM(0, beta, x0, stepsize_gen=stepsize_agm,
                                grad_fn=grad_fn, max_iter=cfg.n_iter),
     }
     if alpha > 0:
         optimizers['AGM Strongly Convex'] = \
-            hw1opt.NesterovAGM(alpha, beta, x0, stepsize_gen=stepsize_agm(),
+            hw1opt.NesterovAGM(alpha, beta, x0, stepsize_gen=stepsize_agm,
                                grad_fn=grad_fn, max_iter=cfg.n_iter)
 
     loss_x0 = loss_fn(x0)
