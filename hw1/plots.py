@@ -42,6 +42,7 @@ def plot_experiment(results: ExperimentResults, out_dir,
     ax: plt.Axes = ax
     cfg: ExperimentConfig = results.config
 
+    # Plot the optimizer losses
     for run_name, run_data in results.results_map.items():
         t_axis = np.arange(1, run_data.shape[1]+1)
         mean = run_data[0]
@@ -50,21 +51,24 @@ def plot_experiment(results: ExperimentResults, out_dir,
         ax.plot(t_axis, mean, label=run_name, linestyle='--', linewidth=0.7)
         ax.fill_between(t_axis, mean-sterr, mean+sterr, alpha=0.3)
 
+    # Add eplison line
     t_axis = np.arange(1, results.config.n_iter+1)
     eps = np.full_like(t_axis, results.config.eps, dtype=np.float)
     ax.plot(t_axis, eps, 'k:', label=rf'$\epsilon=${results.config.eps}')
 
+    # Title
     if not no_plot_title:
         kappa = str(cfg.smax/cfg.smin) if cfg.smin > 0 else r'\infty'
         ax.set_title(rf'{cfg.name}, ($\kappa(A)={kappa}$)')
 
+    # Axes
     ax.set_xlabel(r'$t$')
     ax.set_ylabel(r'$\vert f(\mathbf{x_t}) - f(\mathbf{x^{*}})\vert$')
-    ax.grid()
-    ax.legend(loc='upper right')
     ax.set_xlim(auto=True)
     ax.set_yscale('log')
     ax.set_xscale('log')
+    ax.grid()
+    ax.legend(loc='upper right')
 
     filename = os.path.join(out_dir, f'{str.replace(cfg.name, " ", "_")}')
     fmt = 'pdf'
