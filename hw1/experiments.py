@@ -39,9 +39,11 @@ def run_single_configuration(cfg: ExperimentConfig):
     # Generate data for plotting: just mean and std err, per optimizer
     plot_data = {}
     for opt_name, losses in run_data.items():
-        # losses = losses[:, ~np.all(np.isnan(losses), axis=0)]
-        means = np.mean(losses, axis=0)
-        sterr = np.std(losses, axis=0) / math.sqrt(losses.shape[0])
+        # Remove columns where all values are NaN (means no experiment
+        # repeat got to that iteration)
+        losses = losses[:, ~np.all(np.isnan(losses), axis=0)]
+        means = np.nanmean(losses, axis=0)
+        sterr = np.nanstd(losses, axis=0) / math.sqrt(losses.shape[0])
         plot_data[opt_name] = np.array([means, sterr])
 
     return ExperimentResults(config=cfg, results_map=plot_data)
