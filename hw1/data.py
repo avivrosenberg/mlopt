@@ -37,10 +37,11 @@ def generate_linear_regression(n, d, smax=10, smin=1, sol_mu=100, sol_std=10,
     A = U @ S @ Vh
 
     # Sample a random solution xs
-    xs = np.random.randn(d, 1) * sol_std + sol_mu
+    xs = np.random.multivariate_normal(
+        np.zeros(d) + sol_mu, np.eye(d) * sol_std
+    )
 
     # Create targets vector
-    b = A @ xs + np.random.randn(n, 1) * noise_std
+    b = A.dot(xs) + np.random.randn(n) * noise_std
 
-    return A, b.reshape(-1), xs.reshape(-1)
-
+    return A, b, xs
