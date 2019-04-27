@@ -1,3 +1,4 @@
+import math
 import os
 
 import numpy as np
@@ -64,7 +65,8 @@ def plot_experiment(results: ExperimentResults, out_dir,
     # Axes
     ax.set_xlabel(r'$t$')
     ax.set_ylabel(r'$\vert f(\mathbf{x_t}) - f(\mathbf{x^{*}})\vert$')
-    ax.set_xlim(auto=True)
+    # ax.set_xlim(10**(-0.1), 10**(math.log10(cfg.n_iter)+0.1))
+    # ax.set_ylim(10**(-2.5), 10**(6.5))
     ax.set_yscale('log')
     ax.set_xscale('log')
     ax.grid()

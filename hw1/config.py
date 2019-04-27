@@ -21,7 +21,7 @@ EXPERIMENT_PARAMS = dict(
 ExperimentConfig = collections.namedtuple(
     'ExperimentConfig',
     EXPERIMENT_PARAMS.keys(),
-    defaults=[2**11, 2**5, 5, 0.5, 100, 10, 1000, 0.01, 10],
+    defaults=[2**11, 2**5, 5, 0.5, 100, 0.001, 100000, 0.01, 10],
 )
 
 ExperimentResults = collections.namedtuple(
@@ -29,12 +29,12 @@ ExperimentResults = collections.namedtuple(
 )
 
 DEFAULT_CONFIGURATIONS = [
-        # Positive definite with High, medium and low condition number
+        # Positive definite with high and low condition number
         ExperimentConfig(name='PD HC', smax=5, smin=0.1),
-        ExperimentConfig(name='PD MC', smax=5, smin=0.5),
-        ExperimentConfig(name='PD LC', smax=5, smin=1.0),
-        # Positive semi-definite
-        ExperimentConfig(name='PSD', smax=5, smin=0),
+        ExperimentConfig(name='PD LC', smax=1, smin=0.1),
+        # Positive semi-definite with high and low maximal singular value
+        ExperimentConfig(name='PSD HS', smax=5, smin=0),
+        ExperimentConfig(name='PSD LS', smax=1, smin=0),
     ]
 
 DEFAULTS_FILENAME = 'cfg/defaults.json'
