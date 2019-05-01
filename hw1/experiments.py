@@ -67,14 +67,18 @@ def run_single_experiment(cfg: ExperimentConfig):
     # Generate a single dataset all the optimizers will work with in this
     # experiment
     A, b, xs = hw1data.generate_linear_regression(**cfg._asdict())
+    x0 = np.zeros(cfg.d)
 
-    # Calculate problem parameters based on the dataset
+    # Calculate problem parameters based on the data configuration
     alpha = cfg.smin ** 2
     beta = cfg.smax ** 2
-    R = cfg.sol_mu * math.sqrt(cfg.d) + 3 * cfg.sol_std  # Assuming solution
-    # lies within 3 stds
-    G = (cfg.smax ** 2) * R + cfg.smax * la.norm(b)
+    xs_norm = cfg.sol_mu * math.sqrt(cfg.d)
+    b_norm = cfg.smax * xs_norm
+    f_xs = 0
+    f_x1 = 0.5 * (b_norm ** 2)
+    R = xs_norm
     D = 2 * R
+    G = (cfg.smax ** 2) * R + cfg.smax * b_norm
 
     # Loss function for all optimizers (what we minimize)
     def loss_fn(x):
@@ -92,7 +96,6 @@ def run_single_experiment(cfg: ExperimentConfig):
     stepsize_agm = hw1opt.NesterovAGM.optimal_stepsize_generator()
 
     # Create optimizers for experiment
-    x0 = np.zeros(cfg.d)
     optimizers = {
         'PGD Non-smooth':
             hw1opt.GradientDescent(x0, stepsize_gen=stepsize_nonsmooth,
