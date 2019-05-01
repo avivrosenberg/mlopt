@@ -1,3 +1,4 @@
+import math
 import os
 import json
 import pickle
@@ -29,13 +30,13 @@ ExperimentResults = collections.namedtuple(
 )
 
 DEFAULT_CONFIGURATIONS = [
-        # Positive definite with high and low condition number
-        ExperimentConfig(name='PD HC', smax=5, smin=0.1),
-        ExperimentConfig(name='PD LC', smax=1, smin=0.1),
-        # Positive semi-definite with high and low maximal singular value
-        ExperimentConfig(name='PSD HS', smax=5, smin=0),
-        ExperimentConfig(name='PSD LS', smax=1, smin=0),
-    ]
+    # Positive definite with high and low condition number
+    ExperimentConfig(name='PD HC', smax=8, smin=1),
+    ExperimentConfig(name='PD LC', smax=4, smin=1),
+    # Positive semi-definite with high and low maximal singular value
+    ExperimentConfig(name='PSD HS', smax=8, smin=0),
+    ExperimentConfig(name='PSD LS', smax=4, smin=0),
+]
 
 DEFAULTS_FILENAME = 'cfg/defaults.json'
 
@@ -80,6 +81,30 @@ def load_results(filename: str) -> List[ExperimentResults]:
     """
     with open(filename, 'rb') as file:
         return pickle.load(file)
+
+
+def calc_problem_params(cfg: ExperimentConfig):
+    alpha = cfg.smin ** 2
+    beta = cfg.smax ** 2
+
+    xs_norm = cfg.sol_mu * math.sqrt(cfg.d)
+    b_norm = cfg.smax * xs_norm
+
+    f_xs = 0
+    f_x1 = 0.5 * (b_norm ** 2)
+
+    R = xs_norm
+    D = 2 * R
+    G = (cfg.smax ** 2) * R + cfg.smax * b_norm
+
+    PGD_nonsmooth = D**2 * G**2 / cfg.eps**2
+    PGD_smooth_PSD = beta * xs_norm**2 / cfg.eps
+    PGD_smooth_PD =  beta/alpha * math.log(f_x1/cfg.eps)
+    AGM = math.sqrt(beta * xs_norm**2 / cfg.eps)
+    AGM_SC = math.sqrt(beta/alpha) * math.log(xs_norm / alpha / cfg.eps)
+
+    return locals()
+
 
 
 dump_configs(DEFAULT_CONFIGURATIONS,
