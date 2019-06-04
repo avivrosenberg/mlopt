@@ -4,7 +4,7 @@ import os
 import sys
 
 import linreg.config as cfg
-import linreg.experiments as exp
+import linreg.run as run
 import linreg.plots as plt
 
 DEFAULT_OUT_DIR = os.path.join('.', 'out')
@@ -80,7 +80,7 @@ def run_multi(cfg_file, out_dir=DEFAULT_OUT_DIR, parallel=False, **kw):
     print(f'>>> Running {len(configurations)} configurations: '
           f'{[c.name for c in configurations]}')
 
-    results = exp.run_configurations(configurations, parallel)
+    results = run.run_configurations(configurations, parallel)
 
     results_filename = os.path.join(out_dir, 'results.pickle')
 
@@ -98,7 +98,7 @@ def run_single(out_dir=DEFAULT_OUT_DIR, **kw):
     exp_config = cfg.ExperimentConfig(**config_params)
 
     print(f'>>> Single-experiment run, config={config_params}')
-    result = exp.run_single_configuration(exp_config)
+    result = run.run_single_configuration(exp_config)
 
     print(f'>>> Saving plots to {out_dir}')
     plt.plot_experiment(result, out_dir, **kw)
