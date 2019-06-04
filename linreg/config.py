@@ -8,10 +8,9 @@ from typing import List
 
 EXPERIMENT_PARAMS = dict(
     name='Configuration name',
-    experiment_fn='Fully qualified name of python function that will '
-                  'run a single experiment with this configuration. '
-                  'The function must accept a single argument of type '
-                  'ExperimentConfig.',
+    runner='Fully qualified name of python class that will '
+           'run a single experiment with this configuration. '
+           'The class must extend linreg.run.ExperimentRunner.',
     n='Number of observations in dataset (rows of A)',
     d='Number of features per observation (columns of A)',
     smax='Largest singular value', smin='Smallest singular value',

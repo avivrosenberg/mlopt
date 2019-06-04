@@ -1,3 +1,4 @@
+import abc
 import math
 import multiprocessing as mp
 import sys
@@ -6,6 +7,23 @@ import numpy as np
 import tqdm
 
 from linreg.config import ExperimentConfig, ExperimentResults
+from typing import Dict
+
+
+class ExperimentRunner(abc.ABC):
+    def __init__(self, cfg: ExperimentConfig):
+        self.cfg = cfg
+
+    @abc.abstractmethod
+    def run_experiment(self) -> Dict[str, np.ndarray]:
+        """
+        An experiment means run one or more algorithms once with the
+        same data.
+        :returns: A map from a name of an optimization algorithm to an ndarray
+        of loss values, i.e. the difference between the function value at a
+        current iterate and the function value at the solution point.
+        """
+        pass
 
 
 def run_configurations(configurations, parallel=False):
@@ -27,8 +45,10 @@ def run_configurations(configurations, parallel=False):
 
 
 def run_single_configuration(cfg: ExperimentConfig):
+    # Get the runner for this configuration
     try:
-        experiment_fn = import_function(cfg.experiment_fn)
+        runner_class = import_name(cfg.runner)
+        runner = runner_class(cfg)
     except BaseException as e:
         raise ValueError(f'Please specify a valid experiment_fn in your '
                          f'ExperimentConfig. Got {cfg.experiment_fn}.')
@@ -36,7 +56,7 @@ def run_single_configuration(cfg: ExperimentConfig):
     # run_data will hold a matrix of run results, per optimizer
     run_data = {}
     for k in tqdm.tqdm(range(cfg.n_repeats), file=sys.stdout, desc=cfg.name):
-        single_exp_results = experiment_fn(cfg)
+        single_exp_results = runner.run_experiment()
         for opt_name, losses in single_exp_results.items():
             opt_results = run_data.get(opt_name)
             if opt_results is None:
@@ -57,7 +77,7 @@ def run_single_configuration(cfg: ExperimentConfig):
     return ExperimentResults(config=cfg, results_map=plot_data)
 
 
-def import_function(full_name):
+def import_name(full_name):
     module_name, unit_name = full_name.rsplit('.', 1)
     return getattr(__import__(module_name, fromlist=['']), unit_name)
 
