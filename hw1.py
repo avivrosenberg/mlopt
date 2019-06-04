@@ -7,7 +7,7 @@ import hw1.config as hw1cfg
 import hw1.experiments as hw1exp
 import hw1.plots as hw1plt
 
-DEFAULT_CFG_FILE = os.path.join('hw1', hw1cfg.DEFAULTS_FILENAME)
+DEFAULT_CFG_FILE = os.path.join('hw1', 'cfg', 'hw1.json')
 DEFAULT_OUT_DIR = os.path.join('.', 'out')
 
 

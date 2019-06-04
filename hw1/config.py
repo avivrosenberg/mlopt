@@ -8,6 +8,10 @@ from typing import List
 
 EXPERIMENT_PARAMS = dict(
     name='Configuration name',
+    experiment_fn='Fully qualified name of python function that will '
+                  'run a single experiment with this configuration. '
+                  'The function must accept a single argument of type '
+                  'ExperimentConfig.',
     n='Number of observations in dataset (rows of A)',
     d='Number of features per observation (columns of A)',
     smax='Largest singular value', smin='Smallest singular value',
@@ -22,7 +26,7 @@ EXPERIMENT_PARAMS = dict(
 ExperimentConfig = collections.namedtuple(
     'ExperimentConfig',
     EXPERIMENT_PARAMS.keys(),
-    defaults=[2**11, 2**5, 5, 0.5, 100, 0.001, 100000, 0.01, 10],
+    defaults=[None, 2**11, 2**5, 5, 0.5, 100, 0.001, 100000, 0.01, 10],
 )
 
 ExperimentResults = collections.namedtuple(
@@ -104,7 +108,6 @@ def calc_problem_params(cfg: ExperimentConfig):
     AGM_SC = math.sqrt(beta/alpha) * math.log(xs_norm / alpha / cfg.eps)
 
     return locals()
-
 
 
 dump_configs(DEFAULT_CONFIGURATIONS,

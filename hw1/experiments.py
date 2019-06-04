@@ -31,10 +31,16 @@ def run_configurations(configurations, parallel=False):
 
 
 def run_single_configuration(cfg: ExperimentConfig):
+    try:
+        experiment_fn = import_function(cfg.experiment_fn)
+    except BaseException as e:
+        raise ValueError(f'Please specify a valid experiment_fn in your '
+                         f'ExperimentConfig. Got {cfg.experiment_fn}.')
+
     # run_data will hold a matrix of run results, per optimizer
     run_data = {}
     for k in tqdm.tqdm(range(cfg.n_repeats), file=sys.stdout, desc=cfg.name):
-        single_exp_results = run_single_experiment(cfg)
+        single_exp_results = experiment_fn(cfg)
         for opt_name, losses in single_exp_results.items():
             opt_results = run_data.get(opt_name)
             if opt_results is None:
@@ -55,7 +61,7 @@ def run_single_configuration(cfg: ExperimentConfig):
     return ExperimentResults(config=cfg, results_map=plot_data)
 
 
-def run_single_experiment(cfg: ExperimentConfig):
+def hw1_experiment(cfg: ExperimentConfig):
     """
     A single experiment means run each algorithm once with the same data
     :param cfg: Configuration parameters of this experiment.
@@ -130,6 +136,11 @@ def run_single_experiment(cfg: ExperimentConfig):
         results[name] = losses[0:-1]
 
     return results
+
+
+def import_function(full_name):
+    module_name, unit_name = full_name.rsplit('.', 1)
+    return getattr(__import__(module_name, fromlist=['']), unit_name)
 
 
 if __name__ == '__main__':
