@@ -4,8 +4,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-import hw1.config as hw1cfg
-from hw1.config import ExperimentResults, ExperimentConfig
+import linreg.config as cfg
+from linreg.config import ExperimentResults, ExperimentConfig
 
 
 def plot_from_file(results_filename, out_dir):
@@ -15,7 +15,7 @@ def plot_from_file(results_filename, out_dir):
     :param out_dir: output folder for plots.
     :return: List of filenames written.
     """
-    results = hw1cfg.load_results(results_filename)
+    results = cfg.load_results(results_filename)
     return plot_experiments(results, out_dir)
 
 

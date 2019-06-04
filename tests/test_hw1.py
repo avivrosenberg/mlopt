@@ -4,7 +4,7 @@ import numpy.linalg as la
 import pytest
 from collections import namedtuple
 
-import hw1.data as hw1data
+import linreg.data as hw1data
 
 
 def test_generate_dataset():

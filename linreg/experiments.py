@@ -6,10 +6,10 @@ import numpy as np
 import numpy.linalg as la
 import tqdm
 
-import hw1.config as hw1cfg
-import hw1.data as hw1data
-import hw1.optimizers as hw1opt
-from hw1.config import ExperimentConfig, ExperimentResults
+import linreg.config as cfg
+import linreg.data as data
+import linreg.optimizers as opt
+from linreg.config import ExperimentConfig, ExperimentResults
 
 
 def run_configurations(configurations, parallel=False):
@@ -72,7 +72,7 @@ def hw1_experiment(cfg: ExperimentConfig):
 
     # Generate a single dataset all the optimizers will work with in this
     # experiment
-    A, b, xs = hw1data.generate_linear_regression(**cfg._asdict())
+    A, b, xs = data.generate_linear_regression(**cfg._asdict())
     x0 = np.zeros(cfg.d)
 
     # Calculate problem parameters based on the data configuration
@@ -96,27 +96,27 @@ def hw1_experiment(cfg: ExperimentConfig):
 
     # Step size generators, per optimizer
     stepsize_nonsmooth = \
-        hw1opt.GradientDescent.optimal_stepsize_generator_nonsmooth(D, G)
+        opt.GradientDescent.optimal_stepsize_generator_nonsmooth(D, G)
     stepsize_smooth = \
-        hw1opt.GradientDescent.optimal_stepsize_generator_smooth(beta)
-    stepsize_agm = hw1opt.NesterovAGM.optimal_stepsize_generator()
+        opt.GradientDescent.optimal_stepsize_generator_smooth(beta)
+    stepsize_agm = opt.NesterovAGM.optimal_stepsize_generator()
 
     # Create optimizers for experiment
     optimizers = {
         'PGD Non-smooth':
-            hw1opt.GradientDescent(x0, stepsize_gen=stepsize_nonsmooth,
-                                   grad_fn=grad_fn, max_iter=cfg.n_iter),
+            opt.GradientDescent(x0, stepsize_gen=stepsize_nonsmooth,
+                                grad_fn=grad_fn, max_iter=cfg.n_iter),
         'PGD Smooth':
-            hw1opt.GradientDescent(x0, stepsize_gen=stepsize_smooth,
-                                   grad_fn=grad_fn, max_iter=cfg.n_iter),
+            opt.GradientDescent(x0, stepsize_gen=stepsize_smooth,
+                                grad_fn=grad_fn, max_iter=cfg.n_iter),
         'AGM':
-            hw1opt.NesterovAGM(0, beta, x0, stepsize_gen=stepsize_agm,
-                               grad_fn=grad_fn, max_iter=cfg.n_iter),
+            opt.NesterovAGM(0, beta, x0, stepsize_gen=stepsize_agm,
+                            grad_fn=grad_fn, max_iter=cfg.n_iter),
     }
     if alpha > 0:
         optimizers['AGM Strongly Convex'] = \
-            hw1opt.NesterovAGM(alpha, beta, x0, stepsize_gen=stepsize_agm,
-                               grad_fn=grad_fn, max_iter=cfg.n_iter)
+            opt.NesterovAGM(alpha, beta, x0, stepsize_gen=stepsize_agm,
+                            grad_fn=grad_fn, max_iter=cfg.n_iter)
 
     loss_x0 = loss_fn(x0)
     loss_xs = loss_fn(xs)
@@ -144,4 +144,4 @@ def import_function(full_name):
 
 
 if __name__ == '__main__':
-    results = run_configurations(hw1cfg.DEFAULT_CONFIGURATIONS)
+    results = run_configurations(cfg.DEFAULT_CONFIGURATIONS)

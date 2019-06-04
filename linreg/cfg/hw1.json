@@ -1,7 +1,7 @@
 [
     {
         "name": "PD HC",
-        "experiment_fn": "hw1.experiments.hw1_experiment",
+        "experiment_fn": "linreg.experiments.hw1_experiment",
         "n": 2048,
         "d": 32,
         "smax": 8,
@@ -14,7 +14,7 @@
     },
     {
         "name": "PD LC",
-        "experiment_fn": "hw1.experiments.hw1_experiment",
+        "experiment_fn": "linreg.experiments.hw1_experiment",
         "n": 2048,
         "d": 32,
         "smax": 4,
@@ -27,7 +27,7 @@
     },
     {
         "name": "PSD HS",
-        "experiment_fn": "hw1.experiments.hw1_experiment",
+        "experiment_fn": "linreg.experiments.hw1_experiment",
         "n": 2048,
         "d": 32,
         "smax": 8,
@@ -40,7 +40,7 @@
     },
     {
         "name": "PSD LS",
-        "experiment_fn": "hw1.experiments.hw1_experiment",
+        "experiment_fn": "linreg.experiments.hw1_experiment",
         "n": 2048,
         "d": 32,
         "smax": 4,

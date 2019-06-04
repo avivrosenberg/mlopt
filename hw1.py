@@ -1,13 +1,12 @@
-import os
-import sys
 import argparse
 import datetime as dt
+import os
 
-import hw1.config as hw1cfg
-import hw1.experiments as hw1exp
-import hw1.plots as hw1plt
+import linreg.config as cfg
+import linreg.experiments as exp
+import linreg.plots as plt
 
-DEFAULT_CFG_FILE = os.path.join('hw1', 'cfg', 'hw1.json')
+DEFAULT_CFG_FILE = os.path.join('linreg', 'cfg', 'hw1.json')
 DEFAULT_OUT_DIR = os.path.join('.', 'out')
 
 
@@ -25,7 +24,7 @@ def parse_cli():
             return filename
 
     p = argparse.ArgumentParser(
-        description='MLOPT hw1',
+        description='MLOPT linreg',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
     p.add_argument('--out-dir', '-o', type=str,
@@ -54,10 +53,10 @@ def parse_cli():
                               help='Run a single experiments based on config '
                                    'provided on the command line')
     sp_single.set_defaults(subcmd_fn=run_single)
-    cfg_temp = hw1cfg.ExperimentConfig(name='single-run')
+    cfg_temp = cfg.ExperimentConfig(name='single-run')
     for k, v in cfg_temp._asdict().items():
         sp_single.add_argument(f'--{k}', type=type(v),
-                               help=hw1cfg.EXPERIMENT_PARAMS[k],
+                               help=cfg.EXPERIMENT_PARAMS[k],
                                required=False, default=v)
 
     parsed = p.parse_args()
@@ -76,32 +75,32 @@ def run_multi(cfg_file=DEFAULT_CFG_FILE, out_dir=DEFAULT_OUT_DIR,
 
     print(f'>>> Multi-experiment run, cfg_file={cfg_file}, out_dir={out_dir}')
 
-    configurations = hw1cfg.load_configs(cfg_file)
+    configurations = cfg.load_configs(cfg_file)
     print(f'>>> Running {len(configurations)} configurations: '
           f'{[c.name for c in configurations]}')
 
-    results = hw1exp.run_configurations(configurations, parallel)
+    results = exp.run_configurations(configurations, parallel)
 
     results_filename = os.path.join(out_dir, 'results.pickle')
 
     print(f'>>> Writing results to {results_filename}')
     os.makedirs(out_dir, exist_ok=True)
-    hw1cfg.dump_results(results, results_filename)
+    cfg.dump_results(results, results_filename)
 
     print(f'>>> Plotting results')
-    hw1plt.plot_experiments(results, out_dir, **kw)
+    plt.plot_experiments(results, out_dir, **kw)
 
 
 def run_single(out_dir=DEFAULT_OUT_DIR, **kw):
     config_params = {k: v for k, v in kw.items()
-                     if k in hw1cfg.EXPERIMENT_PARAMS}
-    exp_config = hw1cfg.ExperimentConfig(**config_params)
+                     if k in cfg.EXPERIMENT_PARAMS}
+    exp_config = cfg.ExperimentConfig(**config_params)
 
     print(f'>>> Single-experiment run, config={config_params}')
-    result = hw1exp.run_single_configuration(exp_config)
+    result = exp.run_single_configuration(exp_config)
 
     print(f'>>> Saving plots to {out_dir}')
-    hw1plt.plot_experiment(result, out_dir, **kw)
+    plt.plot_experiment(result, out_dir, **kw)
 
 
 if __name__ == '__main__':
