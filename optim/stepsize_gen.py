@@ -39,3 +39,16 @@ def nesterov_agm():
     while True:
         yield eta
         eta = 0.5 * (-eta**2 + math.sqrt(eta**4 + 4*eta**2))
+
+
+def sgd_sc(alpha):
+    """
+    :param alpha: Strong-convexity coefficient.
+    :return: A generator for the optimal step-size of stochastic
+    gradient descent (SGD) for an alpha-strongly-convex function.
+    """
+    assert alpha > 0.
+    t = 0
+    while True:
+        t += 1
+        yield 2./(alpha * (t+1))
