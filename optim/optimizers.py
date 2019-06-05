@@ -1,5 +1,7 @@
 import math
 
+import optim.stepsize_gen as stepsize_gen
+
 
 class Optimizer(object):
     """
@@ -75,7 +77,7 @@ class NesterovAGM(Optimizer):
 
     def step_strongly_convex(self):
         sub_max_iter = math.ceil(math.sqrt(128 * self.beta / 9 / self.alpha))
-        sub_stepsize_gen = NesterovAGM.optimal_stepsize()
+        sub_stepsize_gen = stepsize_gen.nesterov_agm()
 
         sub_opt = NesterovAGM(alpha=0, beta=self.beta,
                               x0=self.xt,
