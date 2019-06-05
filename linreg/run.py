@@ -6,6 +6,7 @@ import sys
 import numpy as np
 import tqdm
 
+from util.util import import_name
 from linreg.config import ExperimentConfig, ExperimentResults
 from typing import Dict
 
@@ -75,9 +76,4 @@ def run_single_configuration(cfg: ExperimentConfig):
         plot_data[opt_name] = np.array([means, sterr])
 
     return ExperimentResults(config=cfg, results_map=plot_data)
-
-
-def import_name(full_name):
-    module_name, unit_name = full_name.rsplit('.', 1)
-    return getattr(__import__(module_name, fromlist=['']), unit_name)
 
