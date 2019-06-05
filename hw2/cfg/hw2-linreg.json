@@ -1,0 +1,28 @@
+[
+  {
+    "name": "PD HC",
+    "runner": "hw2.experiments.Runner",
+    "n": 128,
+    "d": 16,
+    "smax": 8,
+    "smin": 1,
+    "sol_mu": 100,
+    "sol_std": 0.001,
+    "n_iter": 100000,
+    "eps": 0.01,
+    "n_repeats": 2
+  },
+  {
+    "name": "PD LC",
+    "runner": "hw2.experiments.Runner",
+    "n": 128,
+    "d": 16,
+    "smax": 4,
+    "smin": 1,
+    "sol_mu": 100,
+    "sol_std": 0.001,
+    "n_iter": 100000,
+    "eps": 0.01,
+    "n_repeats": 2
+  }
+]
