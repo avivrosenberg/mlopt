@@ -58,7 +58,7 @@ class GradientDescent(Optimizer):
         return xnew
 
     @staticmethod
-    def optimal_stepsize_generator_nonsmooth(D, G):
+    def optimal_stepsize_nonsmooth(D, G):
         """
         :param D: Diameter of solution set.
         :param G: Upper bound of gradient.
@@ -70,7 +70,7 @@ class GradientDescent(Optimizer):
             yield D / G / math.sqrt(t)
 
     @staticmethod
-    def optimal_stepsize_generator_smooth(beta):
+    def optimal_stepsize_smooth(beta):
         """
         :param beta: Smoothness coefficient.
         :return: A generator for the optimal stepsize of smooth PGD.
@@ -88,14 +88,15 @@ class NesterovAGM(Optimizer):
         self.beta = beta
         self.yt = self.xt
 
-        if alpha > 0:
-            self.step = self.step_strongly_convex
-        else:
-            self.step = self.step_non_strongly_convex
+    def step(self):
+        if self.alpha > 0:
+            return self.step_strongly_convex()
+
+        return self.step_non_strongly_convex()
 
     def step_strongly_convex(self):
         sub_max_iter = math.ceil(math.sqrt(128 * self.beta / 9 / self.alpha))
-        sub_stepsize_gen = NesterovAGM.optimal_stepsize_generator()
+        sub_stepsize_gen = NesterovAGM.optimal_stepsize()
 
         sub_opt = NesterovAGM(alpha=0, beta=self.beta,
                               x0=self.xt,
@@ -130,7 +131,7 @@ class NesterovAGM(Optimizer):
         return xtp1
 
     @staticmethod
-    def optimal_stepsize_generator():
+    def optimal_stepsize():
         """
         :return: A generator for the optimal step size of AGM
         """

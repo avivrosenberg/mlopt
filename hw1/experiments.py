@@ -41,11 +41,9 @@ class Runner(run.ExperimentRunner):
             return A.T.dot(A.dot(x) - b)
 
         # Step size generators, per optimizer
-        stepsize_nonsmooth = \
-            opt.GradientDescent.optimal_stepsize_generator_nonsmooth(D, G)
-        stepsize_smooth = \
-            opt.GradientDescent.optimal_stepsize_generator_smooth(beta)
-        stepsize_agm = opt.NesterovAGM.optimal_stepsize_generator()
+        stepsize_nonsmooth = opt.GradientDescent.optimal_stepsize_nonsmooth(D, G)
+        stepsize_smooth = opt.GradientDescent.optimal_stepsize_smooth(beta)
+        stepsize_agm = opt.NesterovAGM.optimal_stepsize()
 
         # Create optimizers for experiment
         optimizers = {
