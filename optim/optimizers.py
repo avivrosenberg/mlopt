@@ -57,27 +57,6 @@ class GradientDescent(Optimizer):
 
         return xnew
 
-    @staticmethod
-    def optimal_stepsize_nonsmooth(D, G):
-        """
-        :param D: Diameter of solution set.
-        :param G: Upper bound of gradient.
-        :return: A generator for the optimal stepsize of nonsmooth PGD.
-        """
-        t = 0
-        while True:
-            t += 1
-            yield D / G / math.sqrt(t)
-
-    @staticmethod
-    def optimal_stepsize_smooth(beta):
-        """
-        :param beta: Smoothness coefficient.
-        :return: A generator for the optimal stepsize of smooth PGD.
-        """
-        while True:
-            yield 1 / beta
-
 
 class NesterovAGM(Optimizer):
     def __init__(self, alpha=0., beta=1., *args, **kwargs):
@@ -129,13 +108,3 @@ class NesterovAGM(Optimizer):
         self.xt = xtp1
         self.yt = ytp1
         return xtp1
-
-    @staticmethod
-    def optimal_stepsize():
-        """
-        :return: A generator for the optimal step size of AGM
-        """
-        eta = 1
-        while True:
-            yield eta
-            eta = 0.5 * (-eta**2 + math.sqrt(eta**4 + 4*eta**2))

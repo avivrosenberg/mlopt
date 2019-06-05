@@ -5,9 +5,9 @@ import numpy as np
 import numpy.linalg as la
 
 import linreg.data as data
-import linreg.optimizers as opt
 import linreg.run as run
-
+import optim.optimizers as opt
+import optim.stepsize_gen as stepsize_gen
 from linreg.config import ExperimentConfig
 
 
@@ -41,9 +41,9 @@ class Runner(run.ExperimentRunner):
             return A.T.dot(A.dot(x) - b)
 
         # Step size generators, per optimizer
-        stepsize_nonsmooth = opt.GradientDescent.optimal_stepsize_nonsmooth(D, G)
-        stepsize_smooth = opt.GradientDescent.optimal_stepsize_smooth(beta)
-        stepsize_agm = opt.NesterovAGM.optimal_stepsize()
+        stepsize_nonsmooth = stepsize_gen.pgd_nonsmooth(D, G)
+        stepsize_smooth = stepsize_gen.pgd_smooth(beta)
+        stepsize_agm = stepsize_gen.nesterov_agm()
 
         # Create optimizers for experiment
         optimizers = {
