@@ -9,7 +9,7 @@ class Optimizer(object):
     """
 
     def __init__(self, x0, stepsize_gen, grad_fn,
-                 max_iter=math.inf, project_fn=None):
+                 max_iter=math.inf, steps_per_iter=1, project_fn=None):
         """
         Initializes the algorithm.
         :param x0: Starting point.
@@ -18,6 +18,8 @@ class Optimizer(object):
         the minimization target at that point.
         :param max_iter: Max number of iterations to run when iterating over
         this instance.
+        :param steps_per_iter: Number of optimization steps, i.e. calls to
+        step(), to run per iteration when iterating over this instance.
         :param project_fn: A function that given a point x, projects it onto
         some set, returning a new point xp.
         """
@@ -25,15 +27,17 @@ class Optimizer(object):
         self.stepsize_gen = stepsize_gen
         self.grad_fn = grad_fn
         self.max_iter = max_iter
-        self.project_fn = project_fn
+        self.steps_per_iter = steps_per_iter
+        self.project_fn = (lambda x: x) if project_fn is None else project_fn
 
-        self.t = 0
+        self.current_iter = 0
 
     def __next__(self):
-        self.xt = self.step()
+        for k in range(self.steps_per_iter):
+            self.xt = self.step()
 
-        self.t += 1
-        if self.t >= self.max_iter:
+        self.current_iter += 1
+        if self.current_iter >= self.max_iter:
             raise StopIteration()
 
         return self.xt
@@ -54,8 +58,7 @@ class GradientDescent(Optimizer):
         grad = self.grad_fn(self.xt)
 
         xnew = self.xt - eta * grad
-        if self.project_fn is not None:
-            xnew = self.project_fn(xnew)
+        xnew = self.project_fn(xnew)
 
         return xnew
 
@@ -89,8 +92,7 @@ class NesterovAGM(Optimizer):
         for xtp1 in sub_opt:
             pass
 
-        if self.project_fn is not None:
-            xtp1 = self.project_fn(xtp1)
+        xtp1 = self.project_fn(xtp1)
 
         self.xt = xtp1
         return xtp1
@@ -102,8 +104,7 @@ class NesterovAGM(Optimizer):
         grad = self.grad_fn(ztp1)
 
         xtp1 = self.xt - 1.0 / (self.beta * eta) * grad
-        if self.project_fn is not None:
-            xtp1 = self.project_fn(xtp1)
+        xtp1 = self.project_fn(xtp1)
 
         ytp1 = (1 - eta) * self.yt + eta * xtp1
 
