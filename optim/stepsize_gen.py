@@ -38,7 +38,7 @@ def nesterov_agm():
     eta = 1
     while True:
         yield eta
-        eta = 0.5 * (-eta**2 + math.sqrt(eta**4 + 4*eta**2))
+        eta = 0.5 * (-eta ** 2 + math.sqrt(eta ** 4 + 4 * eta ** 2))
 
 
 def sgd_sc(alpha):
@@ -51,4 +51,10 @@ def sgd_sc(alpha):
     t = 0
     while True:
         t += 1
-        yield 2./(alpha * (t+1))
+        yield 2. / (alpha * (t + 1))
+
+
+def const(eta):
+    assert 0. < eta <= 1.
+    while True:
+        yield eta
