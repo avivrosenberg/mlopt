@@ -93,6 +93,10 @@ class MovieLensDataset(abc.ABC):
     def n_movies(self):
         return len(self.movies)
 
+    def __repr__(self):
+        return f'{self.__class__.__name__}(n_users={self.n_users}, ' \
+            f'n_movies={self.n_movies}, data_dir={self.data_dir})'
+
 
 class MovieLens1M(MovieLensDataset):
     def __init__(self):
