@@ -1,11 +1,11 @@
 import abc
 import copy
+import inspect
 import os
 import sys
 
 import numpy as np
 import tqdm
-
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.decomposition import TruncatedSVD
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
@@ -17,7 +17,7 @@ import optim.stepsize_gen
 class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
     def __init__(self, n_users=1000, n_movies=1000,
                  max_iter=10 ** 4, tol=1.,
-                 verbose=True):
+                 verbose=True, **kw):
         """
         Base matrix completion model.
         :param n_users: Number of users.
@@ -130,7 +130,7 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
 
     @property
     def name(self):
-        return 'rpmc'
+        return 'rp'
 
     def _project_fn(self, Xt):
         """
@@ -169,7 +169,7 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
         stepsize_gen = optim.stepsize_gen.const(self.eta)
         optimizer = opt.GradientDescent(
             X0,
-            max_iter=self.max_iter+1,
+            max_iter=self.max_iter + 1,
             grad_fn=lambda Xt: self.grad_fn(Xt, X, y),
             stepsize_gen=stepsize_gen,
             project_fn=self._project_fn,
@@ -184,7 +184,7 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
 
             for t, Xt in enumerate(optimizer, start=1):
                 loss = self.loss_fn(Xt, X, y)
-                mse = (2/X.shape[0]) * loss
+                mse = (2 / X.shape[0]) * loss
 
                 pbar.set_description(pbar_desc(mse))
                 pbar.update()
@@ -194,3 +194,18 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
                     break
 
         return Xt, t, losses
+
+
+# Collect parameter names from all model classes
+ALL_PARAMS = {}
+
+model_classes = inspect.getmembers(
+    sys.modules[__name__],
+    lambda m: inspect.isclass(m) and m.__module__ == __name__
+)
+
+for class_name, model_class in model_classes:
+    if not inspect.isabstract(model_class):
+        ALL_PARAMS.update(model_class().get_params())
+ALL_PARAMS.pop('n_users')
+ALL_PARAMS.pop('n_movies')
