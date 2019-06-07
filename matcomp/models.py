@@ -62,23 +62,61 @@ class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
         grad_Xt[X[:, 0], X[:, 1]] = (Xt[X[:, 0], X[:, 1]] - y)
         return grad_Xt
 
-    def fit(self, X, y):
+    def fit(self, X, y, Xtest=None, ytest=None):
         """
         Fits the model by finding a matrix M that fits the data.
         :param X: An (N,2) tensor of user_id, movie_id pairs.
         :param y: An (N,) tensor of ratings,
+        :param Xtest: Optional test-set for evaluation every step.
+        :param ytest: Optional test-set labels for evaluation every step.
         :return: self.
         """
-        # Check that X and y have correct shape
-        X, y = check_X_y(X, y)
+        has_test = Xtest is not None and ytest is not None
 
-        # Training: run the implementation-specific fit function
-        Xt_final, t_final, losses = self._fit(X, y)
+        X, y = check_X_y(X, y)
+        train_losses = np.full(self.max_iter, np.nan)
+        test_losses = None
+        if has_test:
+            Xtest, ytest = check_X_y(Xtest, ytest)
+            test_losses = np.full(self.max_iter, np.nan)
+
+        # Progress bar
+        def pbar_desc(t_mse, v_mse=None):
+            if v_mse is None:
+                return f'[{self.name}] t_mse={t_mse:.3f}'
+            else:
+                return f'[{self.name}] t_mse={t_mse:.3f} v_mse={v_mse:.3f}'
+        pbar_file = sys.stdout if self.verbose else open(os.devnull, 'w')
+
+        # Training loop
+        with tqdm.tqdm(total=self.max_iter, file=pbar_file) as pbar:
+            t = 0
+            # Run the implementation-specific fit function
+            for Xt in self._fit(X, y):
+                train_loss = self.loss_fn(Xt, X, y)
+                train_losses[t] = train_loss
+                train_mse = (2 / X.shape[0]) * train_loss
+                test_mse = None
+
+                if has_test:
+                    test_loss = self.loss_fn(Xt, Xtest, ytest)
+                    test_losses[t] = test_loss
+                    test_mse = (2 / Xtest.shape[0]) * test_loss
+
+                pbar.set_description(pbar_desc(train_mse, test_mse))
+                pbar.update()
+
+                t += 1
+                if t >= self.max_iter:
+                    break
+                if train_loss < self.tol:
+                    break
 
         # Save training results
-        self.M_ = Xt_final
-        self.t_final_ = t_final
-        self.losses_ = losses
+        self.M_ = Xt
+        self.t_final_ = t
+        self.train_losses_ = train_losses
+        self.test_losses_ = test_losses
 
         return self
 
@@ -108,6 +146,15 @@ class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
 
     @abc.abstractmethod
     def _fit(self, X, y):
+        """
+        Implementation-specific fit function.
+        This should be a generator which generates iterates, i.e. predictions
+        of the completed matrix.
+        :param X: An (N,2) tensor of user_id, movie_id pairs.
+        :param y: An (N,) tensor of ratings,
+        :return: Generates a sequence of matrices of
+        shape(self.n_users, self.n_movies).
+        """
         pass
 
 
@@ -148,13 +195,6 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
         return tsvd.inverse_transform(Xt_reduced)
 
     def _fit(self, X, y):
-        """
-        Fits the model by finding a matrix M that fits the data.
-        :param X: An (N,2) tensor of user_id, movie_id pairs.
-        :param y: An (N,) tensor of ratings,
-        :return: 3-tuple containing final iterate Xt, array of losses and
-        final iteration t.
-        """
 
         # MS is the matrix of ratings representing the dataset.
         MS = np.zeros((self.n_users, self.n_movies), dtype=np.float)
@@ -162,8 +202,6 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
 
         # Initial iterate: low-rank projection of dataset matrix
         X0 = self._project_fn(MS)
-        losses = np.full(self.max_iter + 1, np.nan)
-        losses[0] = self.loss_fn(X0, X, y)
 
         # Define optimizer
         stepsize_gen = optim.stepsize_gen.const(self.eta)
@@ -175,25 +213,10 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
             project_fn=self._project_fn,
         )
 
-        # Run optimizer
-        pbar_desc = lambda m: \
-            f'[{self.name}({self.rank},{self.eta:.1f})] mse={m:.3f}'
-        pbar_file = sys.stdout if self.verbose else open(os.devnull, 'w')
-        with tqdm.tqdm(desc=pbar_desc(0),
-                       total=self.max_iter, file=pbar_file) as pbar:
-
-            for t, Xt in enumerate(optimizer, start=1):
-                loss = self.loss_fn(Xt, X, y)
-                mse = (2 / X.shape[0]) * loss
-
-                pbar.set_description(pbar_desc(mse))
-                pbar.update()
-
-                losses[t] = loss
-                if losses[t] < self.tol:
-                    break
-
-        return Xt, t, losses
+        # Run optimizer, yield iterates
+        yield X0
+        for Xt in optimizer:
+            yield Xt
 
 
 # Collect parameter names from all model classes
