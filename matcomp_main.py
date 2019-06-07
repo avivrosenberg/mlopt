@@ -44,6 +44,9 @@ def create_parser():
                    choices=['ml100k', 'ml1m'], dest='dataset_name',
                    help='Dataset to use: ml100k (MovieLens100K) or '
                         'ml1m (MovieLens1M)')
+    p.add_argument('--test-ratio', type=float, default=1 / 3.,
+                   required=False,
+                   help='Ratio of test-set (held out) to entire dataset')
     p.add_argument('--random-seed', '-r', type=int, default=42,
                    required=False, help='Random seed for splits')
 
@@ -53,23 +56,34 @@ def create_parser():
     sp_cv = sp.add_parser(
         'cross-validate',
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        help='Run cross-validation on one or more matrix-completion models.'
+        help='Run cross-validation on one matrix-completion model.'
     )
     sp_cv.set_defaults(subcmd_fn=run_cv)
     sp_cv.add_argument('--jobs', type=int, default=4, required=False,
                        help='Number of parallel jobs to run')
     sp_cv.add_argument('--splits', type=int, default=4, required=False,
                        help='Number of splits for cross-validation')
-    sp_cv.add_argument('--test-ratio', type=float, default=1/3.,
-                       required=False,
-                       help='Ratio of test-set (held out) to entire dataset')
+
+    # Train
+    sp_tr = sp.add_parser(
+        'train',
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+        help='Train a matrix-completion model.'
+    )
+    sp_tr.set_defaults(subcmd_fn=run_training)
+    sp_tr.add_argument('--calc-test-losses', required=False,
+                       action='store_true',
+                       help='calculate test-set loss at each step')
+
+    # Add model parameters
     for param_name, default_val in models.ALL_PARAMS.items():
-        arg_name = f"--{str.replace(param_name, '_', '-', -1)}"
-        if type(default_val) == bool:
-            sp_cv.add_argument(arg_name, required=False, action='store_true')
-        else:
-            sp_cv.add_argument(arg_name, required=False, default=default_val,
-                               nargs='+', type=type(default_val))
+        for sp, nargs in [(sp_cv, '+'), (sp_tr, '?')]:
+            arg_name = f"--{str.replace(param_name, '_', '-', -1)}"
+            if type(default_val) == bool:
+                sp.add_argument(arg_name, required=False, action='store_true')
+            else:
+                sp.add_argument(arg_name, required=False, default=default_val,
+                                nargs=nargs, type=type(default_val))
 
     return p
 
@@ -80,6 +94,45 @@ def parse_cli(parser: argparse.ArgumentParser):
         parser.print_help()
         sys.exit()
     return parsed
+
+
+def run_training(model_name, dataset_name, out_dir,
+                 calc_test_losses, test_ratio, random_seed, **kw):
+    model_params = {}
+    for k, v in kw.items():
+        if k in models.ALL_PARAMS:
+            model_params[k] = v
+
+    dataset: data.MovieLensDataset = DATASETS[dataset_name]()
+    model: models.MatrixCompletion = MODELS[model_name](
+        n_users=dataset.n_users, n_movies=dataset.n_movies,
+        **model_params
+    )
+
+    print(f'=== Running training')
+    print(f'=== Model: {model}')
+    print(f'=== Dataset: {dataset}')
+
+    X, y = dataset.rating_samples()
+    Xtrain, Xtest, ytrain, ytest = train_test_split(
+        X, y, test_size=test_ratio, random_state=random_seed
+    )
+
+    if calc_test_losses:
+        model.fit(Xtrain, ytrain, Xtest, ytest)
+    else:
+        model.fit(Xtrain, ytrain)
+
+    ytrain_pred = model.predict(Xtrain)
+    final_mse_train = mean_squared_error(ytrain, ytrain_pred)
+
+    ytest_pred = model.predict(Xtest)
+    final_mse_test = mean_squared_error(ytest, ytest_pred)
+
+    print(f'=== final_mse_train={final_mse_train:.3f}, '
+          f'final_mse_test={final_mse_test:.3f}')
+
+    # TODO: serialize losses to file
 
 
 def run_cv(model_name, dataset_name, out_dir,
@@ -99,7 +152,6 @@ def run_cv(model_name, dataset_name, out_dir,
                 model_params[k] = v
 
     dataset: data.MovieLensDataset = DATASETS[dataset_name]()
-
     model: models.MatrixCompletion = MODELS[model_name](
         n_users=dataset.n_users, n_movies=dataset.n_movies,
         **model_params
