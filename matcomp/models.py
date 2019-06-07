@@ -1,11 +1,13 @@
 import abc
+import copy
 import os
 import sys
 
 import numpy as np
 import tqdm
 
-from sklearn.base import BaseEstimator, ClassifierMixin
+import sklearn.metrics as metrics
+from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.decomposition import TruncatedSVD
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 
@@ -13,8 +15,8 @@ import optim.optimizers as opt
 import optim.stepsize_gen
 
 
-class MatrixCompletion(abc.ABC, BaseEstimator, ClassifierMixin):
-    def __init__(self, n_users=None, n_movies=None,
+class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
+    def __init__(self, n_users=1000, n_movies=1000,
                  max_iter=10 ** 4, tol=1.,
                  verbose=True):
         """
@@ -88,6 +90,18 @@ class MatrixCompletion(abc.ABC, BaseEstimator, ClassifierMixin):
 
         return self.M_[X[:, 0], X[:, 1]]
 
+    def get_params(self, deep=True):
+        subclass_params = BaseEstimator.get_params(self, deep)
+        # HACK: get base class params using sklearn's get_params...
+        # Otherwise it's impossible to change baseclass params in cross
+        # validation.
+        c = copy.copy(self)
+        c.__class__ = MatrixCompletion
+        baseclass_params = BaseEstimator.get_params(c, deep)
+
+        subclass_params.update(baseclass_params)
+        return subclass_params
+
     @property
     @abc.abstractmethod
     def name(self):
@@ -107,6 +121,8 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
         :param eta: Learning rate.
         :param proj_n_iter: Number of iterations when computing approximate
         projection.
+        :param kwargs: Extra args for the MatrixCompletion base class,
+        see its init.
         """
         super().__init__(**kwargs)
         self.rank = rank
