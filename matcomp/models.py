@@ -6,7 +6,6 @@ import sys
 import numpy as np
 import tqdm
 
-import sklearn.metrics as metrics
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.decomposition import TruncatedSVD
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
@@ -177,17 +176,20 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
         )
 
         # Run optimizer
-        pbar_desc = lambda t: f'[{self.name}] loss={losses[t]:.3f}'
+        pbar_desc = lambda m: \
+            f'[{self.name}({self.rank},{self.eta:.1f})] mse={m:.3f}'
         pbar_file = sys.stdout if self.verbose else open(os.devnull, 'w')
         with tqdm.tqdm(desc=pbar_desc(0),
                        total=self.max_iter, file=pbar_file) as pbar:
 
             for t, Xt in enumerate(optimizer, start=1):
-                losses[t] = self.loss_fn(Xt, X, y)
+                loss = self.loss_fn(Xt, X, y)
+                mse = (2/X.shape[0]) * loss
 
-                pbar.set_description(pbar_desc(t))
+                pbar.set_description(pbar_desc(mse))
                 pbar.update()
 
+                losses[t] = loss
                 if losses[t] < self.tol:
                     break
 
