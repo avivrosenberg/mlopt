@@ -7,7 +7,7 @@ import linreg.config as cfg
 import linreg.run as run
 import linreg.plots as plt
 
-DEFAULT_OUT_DIR = os.path.join('.', 'out')
+DEFAULT_OUT_DIR = os.path.join('.', 'out', 'linreg')
 
 
 def create_parser():
