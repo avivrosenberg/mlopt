@@ -1,5 +1,7 @@
 import argparse
+import datetime as dt
 import os
+import pickle
 import sys
 
 import pandas as pd
@@ -132,7 +134,16 @@ def run_training(model_name, dataset_name, out_dir,
     print(f'=== final_mse_train={final_mse_train:.3f}, '
           f'final_mse_test={final_mse_test:.3f}')
 
-    # TODO: serialize losses to file
+    # Serialize results
+    timestamp = dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    os.makedirs(out_dir, exist_ok=True)
+    outfile = os.path.join(out_dir, f'train-{model_name}-{timestamp}.dat')
+    print(f'=== Writing results to {outfile}...')
+    with open(outfile, 'wb') as file:
+        data = dict(final_mse_train=final_mse_train,
+                    final_mse_test=final_mse_test,
+                    model=model)
+        pickle.dump(data, file)
 
 
 def run_cv(model_name, dataset_name, out_dir,
@@ -177,11 +188,10 @@ def run_cv(model_name, dataset_name, out_dir,
     )
 
     cv.fit(Xtrain, ytrain)
-
     print(f'=== best_params={cv.best_params_}')
 
     os.makedirs(out_dir, exist_ok=True)
-    outfile = os.path.join(out_dir, f'{model_name}.tsv')
+    outfile = os.path.join(out_dir, f'cv-{model_name}.tsv')
     print(f'=== Writing results to {outfile}...')
     pd.DataFrame(cv.cv_results_).to_csv(outfile, sep='\t')
 
