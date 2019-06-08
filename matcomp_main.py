@@ -137,7 +137,9 @@ def run_training(model_name, dataset_name, out_dir,
     # Serialize results
     timestamp = dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
     os.makedirs(out_dir, exist_ok=True)
-    outfile = os.path.join(out_dir, f'train-{model_name}-{timestamp}.dat')
+    outfile = os.path.join(
+        out_dir, f'train-{model_name}-{dataset_name}-{timestamp}.dat'
+    )
     print(f'=== Writing results to {outfile}...')
     with open(outfile, 'wb') as file:
         data = dict(final_mse_train=final_mse_train,
