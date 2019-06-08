@@ -27,6 +27,7 @@ class MovieLensDataset(abc.ABC):
         """
         X = self.ratings[["user_id", "movie_id"]].to_numpy()
         y = self.ratings[["rating"]].to_numpy().reshape(-1)
+
         return X, y
 
     def ratings_matrix(self) -> np.ndarray:
@@ -37,11 +38,7 @@ class MovieLensDataset(abc.ABC):
         rating.
         """
         X, y = self.rating_samples()
-
-        # Movie and user ids are not contiguous
-        n, m = np.max(X + 1, axis=0)
-
-        M = np.zeros((n, m), dtype=np.float)
+        M = np.zeros((self.n_users, self.n_movies), dtype=np.float)
         M[X[:, 0], X[:, 1]] = y
         return M
 
@@ -85,13 +82,15 @@ class MovieLensDataset(abc.ABC):
             "none": 24,
         }
 
-    @property
+    @cachedproperty
     def n_users(self):
-        return len(self.users)
+        # Maximal id, not number of unique ids, since we use the user_ids as
+        # an index into a the rating matrix. Add one since it's zero-based.
+        return self.ratings['user_id'].max() + 1
 
-    @property
+    @cachedproperty
     def n_movies(self):
-        return len(self.movies)
+        return self.ratings['movie_id'].max() + 1
 
     def __repr__(self):
         return f'{self.__class__.__name__}(n_users={self.n_users}, ' \
