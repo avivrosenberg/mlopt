@@ -16,14 +16,14 @@ import optim.stepsize_gen
 
 class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
     def __init__(self, n_users=1000, n_movies=1000,
-                 max_iter=10 ** 4, tol=1.,
+                 max_iter=10 ** 3, tol=.05,
                  verbose=True, **kw):
         """
         Base matrix completion model.
         :param n_users: Number of users.
         :param n_movies: Number of movies.
         :param max_iter: Max number of iterations for training fit.
-        :param tol: Stop training if loss is less that this.
+        :param tol: Stop training if MSE is less that this.
         :param verbose: Whether to show training progress.
         """
         super().__init__()
@@ -111,7 +111,7 @@ class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
                 t += 1
                 if t >= self.max_iter:
                     break
-                if train_loss < self.tol:
+                if train_mse < self.tol:
                     break
 
         # Save training results
