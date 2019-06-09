@@ -14,7 +14,8 @@ import matcomp.models as models
 OUT_DIR_DEFAULT = os.path.join('out', 'matcomp')
 DATASETS = {'ml100k': data.MovieLens100K, 'ml1m': data.MovieLens1M}
 MODELS = {'rp': models.RankProjectionMatrixCompletion,
-          'ff': models.FactorizedFormMatrixCompletion}
+          'ff': models.FactorizedFormMatrixCompletion,
+          'cr': models.ConvexRelaxationMatrixCompletion}
 MODEL_PARAMS = {name: cls().get_params() for (name, cls) in MODELS.items()}
 
 
@@ -41,7 +42,7 @@ def create_parser():
     p.add_argument('--no-plot-title', '-P', action='store_true',
                    required=False, help='Suppress titles in plots')
     p.add_argument('--model', '-m', required=True,
-                   choices=['rp', 'ff', 'cr'], dest='model_name',
+                   choices=MODELS.keys(), dest='model_name',
                    help='Model type to use: rp (rank-projection),'
                         'ff (factorized-form) or cr (convex relaxation)')
     p.add_argument('--dataset', '-d', required=True,
@@ -176,8 +177,6 @@ def run_cv(model_name, dataset_name, out_dir,
         n_users=dataset.n_users, n_movies=dataset.n_movies,
         **model_params
     )
-
-    # Best was rank=10, eta=0.5
 
     print(f'=== Running cross-validation')
     print(f'=== Model: {model}')

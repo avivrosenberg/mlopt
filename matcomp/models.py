@@ -291,6 +291,31 @@ class FactorizedFormMatrixCompletion(MatrixCompletion):
             Vt = next(iter_V)
 
 
+class ConvexRelaxationMatrixCompletion(MatrixCompletion):
+    """
+    Computes matrix-completion using a convex-relaxation method.
+    Instead of optimizing for a low-rank matrix, an upper bound on the
+    nuclear norm of the matrix is used instead.
+    """
+
+    def __init__(self, tau=5, **kwargs):
+        """
+        :param tau: Desired maximal nuclear norm value of result.
+        :param kwargs: Extra args for the MatrixCompletion base class,
+        see its init.
+        """
+        super().__init__(**kwargs)
+        self.tau = tau
+
+    @property
+    def name(self):
+        return 'cr'
+
+    def _fit(self, X, y):
+        raise NotImplementedError('TODO')
+
+
+###
 # Collect parameter names from all model classes
 ALL_PARAMS = {}
 
