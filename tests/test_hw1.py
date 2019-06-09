@@ -27,6 +27,9 @@ def test_generate_dataset():
         assert b.shape == (n,)
         assert xs.shape == (d,)
 
+        # Test type
+        assert A.dtype == b.dtype == xs.dtype == np.float32
+
         # Solve least squares with A, b
         xs_sol, err, rank, svals = la.lstsq(A, b.reshape(-1))
 
