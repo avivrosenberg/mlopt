@@ -86,6 +86,7 @@ class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
                 return f'[{self.name}] t_mse={t_mse:.3f}'
             else:
                 return f'[{self.name}] t_mse={t_mse:.3f} v_mse={v_mse:.3f}'
+
         pbar_file = sys.stdout if self.verbose else open(os.devnull, 'w')
 
         # Training loop
@@ -159,10 +160,13 @@ class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
 
 
 class RankProjectionMatrixCompletion(MatrixCompletion):
+    """
+    Computes a matrix completion using an approximate projection to a
+    low-rank matrix at each step.
+    """
+
     def __init__(self, rank=20, eta=0.5, proj_n_iter=5, **kwargs):
         """
-        Computes a matrix completion using an approximate projection to a
-        low-rank matrix at each step.
         :param rank: Desired maximal rank of result.
         :param eta: Learning rate.
         :param proj_n_iter: Number of iterations when computing approximate
@@ -195,7 +199,6 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
         return tsvd.inverse_transform(Xt_reduced)
 
     def _fit(self, X, y):
-
         # MS is the matrix of ratings representing the dataset.
         MS = np.zeros((self.n_users, self.n_movies), dtype=np.float)
         MS[X[:, 0], X[:, 1]] = y
@@ -207,7 +210,6 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
         stepsize_gen = optim.stepsize_gen.const(self.eta)
         optimizer = opt.GradientDescent(
             X0,
-            max_iter=self.max_iter + 1,
             grad_fn=lambda Xt: self.grad_fn(Xt, X, y),
             stepsize_gen=stepsize_gen,
             project_fn=self._project_fn,
@@ -216,6 +218,82 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
         # Run optimizer, yield iterates
         yield X0
         for Xt in optimizer:
+            yield Xt
+
+
+class FactorizedFormMatrixCompletion(MatrixCompletion):
+    """
+    Computes matrix-completion using a factorized-form optimization.
+    I.e., instead of directly optimizing the target matrix X, we optimize
+    two low-rank matrices such that X = U V^T.
+    """
+
+    def __init__(self, rank=20, **kwargs):
+        """
+        :param rank: Desired maximal rank of result. This will be the
+        maximal rank of the two optimized matrices.
+        :param kwargs: Extra args for the MatrixCompletion base class,
+        see its init.
+        """
+        super().__init__(**kwargs)
+        self.rank = rank
+
+    @property
+    def name(self):
+        return 'ff'
+
+    def _fit(self, X, y):
+        # MS is the matrix of ratings representing the dataset.
+        MS = np.zeros((self.n_users, self.n_movies), dtype=np.float)
+        MS[X[:, 0], X[:, 1]] = y
+
+        # Fit approximate low-rank SVD decomposition to get initial starting
+        # matrices U, V.
+        tsvd = TruncatedSVD(self.rank, algorithm="randomized", )
+        # X shape is n,m
+        Ut = tsvd.fit_transform(MS)  # U shape is (n,r)
+        Vt = np.transpose(tsvd.components_)  # V shape is (m,r)
+
+        # g(U,V) = f(U V^T)
+        # d/dU g(U,V) = d/dU f(U V^T) = [ grad f(U V^T) ] V
+        # d/dV g(U,V) = d/dV f(U V^T) = [ grad f(U V^T) ]^T U
+
+        def grad_fn_U(U):
+            grad_f = self.grad_fn(np.matmul(U, Vt.T), X, y)
+            dg_dU = np.matmul(grad_f, Vt)
+            return dg_dU
+
+        def grad_fn_V(V):
+            grad_f = self.grad_fn(np.matmul(Ut, V.T), X, y)
+            dg_dV = np.matmul(grad_f.T, Ut)
+            return dg_dV
+
+        def stepsize_U():
+            while True:
+                lambdamax = np.linalg.eigvalsh(np.matmul(Vt.T, Vt))[-1]
+                eta = 1/lambdamax
+                yield eta
+
+        def stepsize_V():
+            while True:
+                lambdamax = np.linalg.eigvalsh(np.matmul(Ut.T, Ut))[-1]
+                eta = 1/lambdamax
+                yield eta
+
+        optimizer_U = opt.GradientDescent(
+            Ut, grad_fn=grad_fn_U, stepsize_gen=stepsize_U(),
+        )
+        optimizer_V = opt.GradientDescent(
+            Vt, grad_fn=grad_fn_V, stepsize_gen=stepsize_V(),
+        )
+
+        Xt = np.matmul(Ut, Vt.T)
+        yield Xt
+        iter_U, iter_V = iter(optimizer_U), iter(optimizer_V)
+        while True:
+            Ut = next(iter_U)
+            Vt = next(iter_V)
+            Xt = np.matmul(Ut, Vt.T)
             yield Xt
 
 
