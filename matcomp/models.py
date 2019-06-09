@@ -243,14 +243,13 @@ class FactorizedFormMatrixCompletion(MatrixCompletion):
         return 'ff'
 
     def _fit(self, X, y):
-        # MS is the matrix of ratings representing the dataset.
+        # MS is the matrix of ratings representing the dataset of shape (n, m).
         MS = np.zeros((self.n_users, self.n_movies), dtype=np.float)
         MS[X[:, 0], X[:, 1]] = y
 
         # Fit approximate low-rank SVD decomposition to get initial starting
         # matrices U, V.
         tsvd = TruncatedSVD(self.rank, algorithm="randomized", )
-        # X shape is n,m
         Ut = tsvd.fit_transform(MS)  # U shape is (n,r)
         Vt = np.transpose(tsvd.components_)  # V shape is (m,r)
 
@@ -258,27 +257,22 @@ class FactorizedFormMatrixCompletion(MatrixCompletion):
         # d/dU g(U,V) = d/dU f(U V^T) = [ grad f(U V^T) ] V
         # d/dV g(U,V) = d/dV f(U V^T) = [ grad f(U V^T) ]^T U
 
-        def grad_fn_U(U):
-            grad_f = self.grad_fn(np.matmul(U, Vt.T), X, y)
-            dg_dU = np.matmul(grad_f, Vt)
-            return dg_dU
+        def grad_fn_U(_):
+            # Note: using pre-calculated grad_f for speed, see below
+            return np.matmul(grad_f, Vt)
 
-        def grad_fn_V(V):
-            grad_f = self.grad_fn(np.matmul(Ut, V.T), X, y)
-            dg_dV = np.matmul(grad_f.T, Ut)
-            return dg_dV
+        def grad_fn_V(_):
+            return np.matmul(grad_f.T, Ut)
 
         def stepsize_U():
             while True:
-                lambdamax = np.linalg.eigvalsh(np.matmul(Vt.T, Vt))[-1]
-                eta = 1/lambdamax
-                yield eta
+                lambda_max_VV = np.linalg.eigvalsh(np.matmul(Vt.T, Vt))[-1]
+                yield 1 / lambda_max_VV
 
         def stepsize_V():
             while True:
-                lambdamax = np.linalg.eigvalsh(np.matmul(Ut.T, Ut))[-1]
-                eta = 1/lambdamax
-                yield eta
+                lambda_max_UU = np.linalg.eigvalsh(np.matmul(Ut.T, Ut))[-1]
+                yield 1 / lambda_max_UU
 
         optimizer_U = opt.GradientDescent(
             Ut, grad_fn=grad_fn_U, stepsize_gen=stepsize_U(),
@@ -287,14 +281,13 @@ class FactorizedFormMatrixCompletion(MatrixCompletion):
             Vt, grad_fn=grad_fn_V, stepsize_gen=stepsize_V(),
         )
 
-        Xt = np.matmul(Ut, Vt.T)
-        yield Xt
         iter_U, iter_V = iter(optimizer_U), iter(optimizer_V)
         while True:
+            Xt = np.matmul(Ut, Vt.T)
+            grad_f = self.grad_fn(Xt, X, y)  # calc grad_f for both updates
+            yield Xt
             Ut = next(iter_U)
             Vt = next(iter_V)
-            Xt = np.matmul(Ut, Vt.T)
-            yield Xt
 
 
 # Collect parameter names from all model classes
