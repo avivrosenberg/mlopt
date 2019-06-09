@@ -51,8 +51,8 @@ def run_single_configuration(cfg: ExperimentConfig):
         runner_class = import_name(cfg.runner)
         runner = runner_class(cfg)
     except BaseException as e:
-        raise ValueError(f'Please specify a valid experiment_fn in your '
-                         f'ExperimentConfig. Got {cfg.experiment_fn}.')
+        raise ValueError(f'Please specify a valid runner in your '
+                         f'ExperimentConfig. Got {cfg.runner}.')
 
     # run_data will hold a matrix of run results, per optimizer
     run_data = {}
