@@ -166,7 +166,7 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
     low-rank matrix at each step.
     """
 
-    def __init__(self, rank=20, eta=0.5, proj_n_iter=5, **kwargs):
+    def __init__(self, rank=5, eta=0.5, proj_n_iter=5, **kwargs):
         """
         :param rank: Desired maximal rank of result.
         :param eta: Learning rate.
@@ -229,7 +229,7 @@ class FactorizedFormMatrixCompletion(MatrixCompletion):
     two low-rank matrices such that X = U V^T.
     """
 
-    def __init__(self, rank=20, **kwargs):
+    def __init__(self, rank=5, **kwargs):
         """
         :param rank: Desired maximal rank of result. This will be the
         maximal rank of the two optimized matrices.
