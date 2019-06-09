@@ -38,21 +38,36 @@ class Runner(run.ExperimentRunner):
         def loss_fn(x):
             return 0.5 * la.norm(A.dot(x) - b) ** 2
 
-        # Gradient Stochastic "Oracle" for SGD
-        def grad_fn_sgd(x, k=1):
-            i = np.random.randint(0, A.shape[0], 1)
+        # Gradient Stochastic Oracle for SGD and SVRG
+        def grad_fn(x, nbatch=None, seed=None):
+            if seed is not None:
+                np.random.seed(seed)
+            i_full = range(A.shape[0])
+            if nbatch is not None:
+                i = np.random.choice(i_full, size=nbatch, replace=False)
+            else:
+                i = i_full
             return A[i].T.dot(A[i].dot(x) - b[i])
 
-        # Step size generators, per optimizer
-        stepsize_sgd = stepsize_gen.sgd_sc(alpha)
-
         # Create optimizers for experiment
-        optimizers = {
-            'SGD':
-                opt.GradientDescent(x0, stepsize_gen=stepsize_sgd,
-                                    steps_per_iter=self.cfg.n,
-                                    grad_fn=grad_fn_sgd, max_iter=cfg.n_iter),
-        }
+        sgd_batch_sizes = [1, 4, 16, 64]
+        optimizers = {}
+        for batch_size in sgd_batch_sizes:
+            optimizers[f'SGD{batch_size}'] = opt.GradientDescent(
+                x0,
+                stepsize_gen=stepsize_gen.sgd_sc(alpha),
+                steps_per_iter=int(self.cfg.n / batch_size),
+                grad_fn=lambda x: grad_fn(x, batch_size),
+                max_iter=cfg.n_iter
+            )
+        optimizers['SVRG'] = opt.SVRG(
+            x0,
+            # not sure why smaller stepsize is needed...
+            stepsize_gen=stepsize_gen.const(1/(10*beta)/10),
+            steps_per_iter=int(20*beta/alpha),
+            grad_fn=grad_fn,
+            max_iter=cfg.n_iter
+        )
 
         loss_x0 = loss_fn(x0)
         loss_xs = loss_fn(xs)
@@ -72,4 +87,3 @@ class Runner(run.ExperimentRunner):
             results[name] = losses[0:-1]
 
         return results
-

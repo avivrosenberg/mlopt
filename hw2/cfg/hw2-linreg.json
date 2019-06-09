@@ -1,28 +1,41 @@
 [
   {
-    "name": "PD HC",
+    "name": "1",
     "runner": "hw2.experiments.Runner",
     "n": 128,
-    "d": 16,
-    "smax": 8,
-    "smin": 1,
+    "d": 96,
+    "smax": 2,
+    "smin": 2,
     "sol_mu": 100,
     "sol_std": 0.001,
-    "n_iter": 100000,
+    "n_iter": 200,
     "eps": 0.01,
-    "n_repeats": 2
+    "n_repeats": 10
   },
   {
-    "name": "PD LC",
+    "name": "2",
     "runner": "hw2.experiments.Runner",
     "n": 128,
-    "d": 16,
+    "d": 96,
     "smax": 4,
-    "smin": 1,
+    "smin": 2,
     "sol_mu": 100,
     "sol_std": 0.001,
-    "n_iter": 100000,
+    "n_iter": 200,
     "eps": 0.01,
-    "n_repeats": 2
+    "n_repeats": 10
+  },
+  {
+    "name": "3",
+    "runner": "hw2.experiments.Runner",
+    "n": 128,
+    "d": 96,
+    "smax": 6,
+    "smin": 2,
+    "sol_mu": 100,
+    "sol_std": 0.001,
+    "n_iter": 200,
+    "eps": 0.01,
+    "n_repeats": 10
   }
 ]
