@@ -13,7 +13,9 @@ import matcomp.models as models
 
 OUT_DIR_DEFAULT = os.path.join('out', 'matcomp')
 DATASETS = {'ml100k': data.MovieLens100K, 'ml1m': data.MovieLens1M}
-MODELS = {'rp': models.RankProjectionMatrixCompletion}
+MODELS = {'rp': models.RankProjectionMatrixCompletion,
+          'ff': models.FactorizedFormMatrixCompletion}
+MODEL_PARAMS = {name: cls().get_params() for (name, cls) in MODELS.items()}
 
 
 def create_parser():
@@ -73,14 +75,15 @@ def create_parser():
         help='Train a matrix-completion model.'
     )
     sp_tr.set_defaults(subcmd_fn=run_training)
-    sp_tr.add_argument('--calc-test-losses', required=False,
+    sp_tr.add_argument('--no-test-set', required=False,
                        action='store_true',
-                       help='calculate test-set loss at each step')
+                       help="Don't use a test-set, train on entire dataset.")
 
-    # Add model parameters
+    # Add model parameters for training and cv
     for param_name, default_val in models.ALL_PARAMS.items():
+        arg_name = f"--{str.replace(param_name, '_', '-', -1)}"
+        # for CV we allow multiple values for every parameters
         for sp, nargs in [(sp_cv, '+'), (sp_tr, '?')]:
-            arg_name = f"--{str.replace(param_name, '_', '-', -1)}"
             if type(default_val) == bool:
                 sp.add_argument(arg_name, required=False, action='store_true')
             else:
@@ -99,13 +102,13 @@ def parse_cli(parser: argparse.ArgumentParser):
 
 
 def run_training(model_name, dataset_name, out_dir,
-                 calc_test_losses, test_ratio, random_seed, **kw):
+                 no_test_set, test_ratio, random_seed, **kw):
     model_params = {}
     for k, v in kw.items():
-        if k in models.ALL_PARAMS:
+        if k in MODEL_PARAMS[model_name]:
             model_params[k] = v
 
-    dataset: data.MovieLensDataset = DATASETS[dataset_name]()
+    dataset: return_data.MovieLensDataset = DATASETS[dataset_name]()
     model: models.MatrixCompletion = MODELS[model_name](
         n_users=dataset.n_users, n_movies=dataset.n_movies,
         **model_params
@@ -115,24 +118,26 @@ def run_training(model_name, dataset_name, out_dir,
     print(f'=== Model: {model}')
     print(f'=== Dataset: {dataset}')
 
-    X, y = dataset.rating_samples()
-    Xtrain, Xtest, ytrain, ytest = train_test_split(
-        X, y, test_size=test_ratio, random_state=random_seed
-    )
+    Xtrain, ytrain = dataset.rating_samples()
 
-    if calc_test_losses:
-        model.fit(Xtrain, ytrain, Xtest, ytest)
-    else:
+    if no_test_set:
         model.fit(Xtrain, ytrain)
+    else:
+        Xtrain, Xtest, ytrain, ytest = train_test_split(
+            Xtrain, ytrain, test_size=test_ratio, random_state=random_seed
+        )
+        model.fit(Xtrain, ytrain, Xtest, ytest)
 
     ytrain_pred = model.predict(Xtrain)
     final_mse_train = mean_squared_error(ytrain, ytrain_pred)
+    print(f'=== Results: train-set MSE: {final_mse_train:.3f}', end='')
 
-    ytest_pred = model.predict(Xtest)
-    final_mse_test = mean_squared_error(ytest, ytest_pred)
-
-    print(f'=== final_mse_train={final_mse_train:.3f}, '
-          f'final_mse_test={final_mse_test:.3f}')
+    final_mse_test = None
+    if not no_test_set:
+        ytest_pred = model.predict(Xtest)
+        final_mse_test = mean_squared_error(ytest, ytest_pred)
+        print(f', test-set MSE: {final_mse_test:.3f} ', end='')
+    print('')
 
     # Serialize results
     timestamp = dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
@@ -141,11 +146,13 @@ def run_training(model_name, dataset_name, out_dir,
         out_dir, f'train-{model_name}-{dataset_name}-{timestamp}.dat'
     )
     print(f'=== Writing results to {outfile}...')
+    return_data = dict(final_mse_train=final_mse_train,
+                       final_mse_test=final_mse_test,
+                       model=model)
     with open(outfile, 'wb') as file:
-        data = dict(final_mse_train=final_mse_train,
-                    final_mse_test=final_mse_test,
-                    model=model)
-        pickle.dump(data, file)
+        pickle.dump(return_data, file)
+
+    return return_data
 
 
 def run_cv(model_name, dataset_name, out_dir,
@@ -155,7 +162,7 @@ def run_cv(model_name, dataset_name, out_dir,
 
     # Distinguish between parameters of CV (lists) and model parameters.
     for k, v in kw.items():
-        if k in models.ALL_PARAMS:
+        if k in MODEL_PARAMS[model_name]:
             if isinstance(v, list):
                 if len(v) == 1:
                     model_params[k] = v[0]
@@ -190,15 +197,17 @@ def run_cv(model_name, dataset_name, out_dir,
     )
 
     cv.fit(Xtrain, ytrain)
-    print(f'=== best_params={cv.best_params_}')
+    print(f'=== Result: best_params={cv.best_params_}')
 
     os.makedirs(out_dir, exist_ok=True)
     outfile = os.path.join(out_dir, f'cv-{model_name}.tsv')
     print(f'=== Writing results to {outfile}...')
-    pd.DataFrame(cv.cv_results_).to_csv(outfile, sep='\t')
+    cv_results_df = pd.DataFrame(cv.cv_results_)
+    cv_results_df.to_csv(outfile, sep='\t')
+
+    return cv_results_df
 
 
 if __name__ == '__main__':
     parsed_args = parse_cli(create_parser())
-    print(parsed_args)
     parsed_args.subcmd_fn(**vars(parsed_args))
