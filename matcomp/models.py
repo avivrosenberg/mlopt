@@ -58,7 +58,8 @@ class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
         :return: A tensor, the same shape as Xt, representing the gradient
         of the loss function at Xt.
         """
-        grad_Xt = np.zeros((self.n_users, self.n_movies), dtype=np.float)
+        # Note: float32 for speed
+        grad_Xt = np.zeros((self.n_users, self.n_movies), dtype=np.float32)
         grad_Xt[X[:, 0], X[:, 1]] = (Xt[X[:, 0], X[:, 1]] - y)
         return grad_Xt
 
@@ -200,7 +201,7 @@ class RankProjectionMatrixCompletion(MatrixCompletion):
 
     def _fit(self, X, y):
         # MS is the matrix of ratings representing the dataset.
-        MS = np.zeros((self.n_users, self.n_movies), dtype=np.float)
+        MS = np.zeros((self.n_users, self.n_movies), dtype=np.float32)
         MS[X[:, 0], X[:, 1]] = y
 
         # Initial iterate: low-rank projection of dataset matrix
@@ -244,7 +245,7 @@ class FactorizedFormMatrixCompletion(MatrixCompletion):
 
     def _fit(self, X, y):
         # MS is the matrix of ratings representing the dataset of shape (n, m).
-        MS = np.zeros((self.n_users, self.n_movies), dtype=np.float)
+        MS = np.zeros((self.n_users, self.n_movies), dtype=np.float32)
         MS[X[:, 0], X[:, 1]] = y
 
         # Fit approximate low-rank SVD decomposition to get initial starting
