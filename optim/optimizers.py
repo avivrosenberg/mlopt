@@ -1,4 +1,7 @@
 import math
+import random
+
+import numpy as np
 
 import optim.stepsize_gen as stepsize_gen
 
@@ -23,6 +26,7 @@ class Optimizer(object):
         :param project_fn: A function that given a point x, projects it onto
         some set, returning a new point xp.
         """
+        assert steps_per_iter > 0 and max_iter > 0
         self.xt = x0
         self.stepsize_gen = stepsize_gen
         self.grad_fn = grad_fn
@@ -111,3 +115,44 @@ class NesterovAGM(Optimizer):
         self.xt = xtp1
         self.yt = ytp1
         return xtp1
+
+
+class SVRG(Optimizer):
+    def __init__(self, *args, **kwargs):
+        """
+
+        :param grad_fn_full: Gradient function of full dataset that will
+        be used every steps_per_iter steps.
+        """
+        super().__init__(*args, **kwargs)
+
+        self.k = self.steps_per_iter
+
+        self.zt = self.xt  # zt will be our inner-loop iterate
+        self.zt_buffer = np.zeros((self.steps_per_iter, *self.zt.shape),
+                                  dtype=self.zt.dtype)
+        self.zt_buffer[0] = self.zt * self.steps_per_iter  # first time average
+
+        self.yt = None
+        self.full_grad_yt = None
+
+    def step(self):
+        if self.k == self.steps_per_iter:
+            self.k = 0
+            self.yt = np.mean(self.zt_buffer, axis=0)
+            self.yt = self.project_fn(self.yt)
+            self.full_grad_yt = self.grad_fn(self.yt, nbatch=None)
+
+        self.zt_buffer[self.k] = self.zt
+
+        seed = random.randint(0, 2 ** 16)
+        grad = self.grad_fn(self.zt, nbatch=1, seed=seed)
+        grad -= self.grad_fn(self.yt, nbatch=1, seed=seed)
+        grad += self.full_grad_yt
+
+        eta = next(self.stepsize_gen)
+        self.zt = self.zt - eta * grad
+
+        self.k += 1
+
+        return self.yt
