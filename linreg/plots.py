@@ -36,7 +36,7 @@ def plot_experiment(results: ExperimentResults, out_dir,
     :param results: An ExperimentResults.
     :param out_dir: output folder for plots.
     :param no_plot_title: Whether to skip adding a title.
-    :return: List of filenames written.
+    :return: filename written.
     """
     fig, ax = plt.subplots(1, 1)
     fig: plt.Figure = fig
@@ -77,3 +77,4 @@ def plot_experiment(results: ExperimentResults, out_dir,
     fig.set_size_inches(8*0.8, 6*0.8)
     fig.savefig(f'{filename}.{fmt}', format=fmt,
                 bbox_inches='tight', pad_inches=0.1)
+    return filename
