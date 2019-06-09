@@ -25,7 +25,7 @@ def generate_linear_regression(n, d, smax=10, smin=1, sol_mu=100, sol_std=10,
     """
 
     # Decompose a random matrix T with SVD
-    T = np.random.randn(n, d)
+    T = np.random.randn(n, d).astype(np.float32)
     U, s, Vh = np.linalg.svd(T)
 
     # New singular values
@@ -39,9 +39,9 @@ def generate_linear_regression(n, d, smax=10, smin=1, sol_mu=100, sol_std=10,
     # Sample a random solution xs
     xs = np.random.multivariate_normal(
         np.zeros(d) + sol_mu, np.eye(d) * sol_std
-    )
+    ).astype(np.float32)
 
     # Create targets vector
-    b = A.dot(xs) + np.random.randn(n) * noise_std
+    b = A.dot(xs) + np.random.randn(n).astype(np.float32) * noise_std
 
     return A, b, xs
