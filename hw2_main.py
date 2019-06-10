@@ -13,11 +13,6 @@ if __name__ == '__main__':
 
     print('=== Running matrix completion models...')
     for model_name in matcomp_main.MODELS.keys():
-
-        # TODO: Remove this after CR model is implemented
-        if model_name == 'cr':
-            continue
-
         cv_results_file = os.path.join(matcomp_main.OUT_DIR_DEFAULT,
                                        f'cv-{model_name}.tsv')
         if os.path.isfile(cv_results_file):

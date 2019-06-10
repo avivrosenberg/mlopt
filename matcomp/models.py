@@ -23,7 +23,7 @@ class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
         :param n_users: Number of users.
         :param n_movies: Number of movies.
         :param max_iter: Max number of iterations for training fit.
-        :param tol: Stop training if MSE is less that this.
+        :param tol: Stop training if MSE is less than this.
         :param verbose: Whether to show training progress.
         """
         super().__init__()
@@ -298,21 +298,90 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
     nuclear norm of the matrix is used instead.
     """
 
-    def __init__(self, tau=5, **kwargs):
+    def __init__(self, tau=5, power_method_iters=10, **kwargs):
         """
         :param tau: Desired maximal nuclear norm value of result.
+        :param power_method_iters: Amount of iterations to run the power method
         :param kwargs: Extra args for the MatrixCompletion base class,
         see its init.
         """
         super().__init__(**kwargs)
         self.tau = tau
+        self.stepsize_gen = optim.stepsize_gen.cond_grad()
+        self.power_method_iters = power_method_iters
 
     @property
     def name(self):
         return 'cr'
 
     def _fit(self, X, y):
-        raise NotImplementedError('TODO')
+        # MS is the matrix of ratings representing the dataset of shape (n, m).
+        MS = np.zeros((self.n_users, self.n_movies), dtype=np.float32)
+        MS[X[:, 0], X[:, 1]] = y
+
+        # Compute sigma max over the entire dataset - to be used throughout the training process
+        tsvd = TruncatedSVD(n_components=min(self.n_users, self.n_movies), algorithm="randomized")
+        tsvd.fit(X=MS)
+        sigma_max = tsvd.singular_values_[0]
+
+        # Initial iterate: low-rank projection of dataset matrix
+        ii = 0
+        tau = 0
+
+        for eigenvalue in tsvd.singular_values_:
+            if tau + eigenvalue <= self.tau:
+                tau += eigenvalue
+                ii += 1
+
+            else:
+                break
+
+        comps = tsvd.components_[0:ii, :]
+        comps_t = np.transpose(comps, axes=(0, 1))
+
+        Xt = np.matmul(a=comps, b=comps_t)
+
+        # Yield iterates
+        K = (self.n_users + self.n_movies)
+        A = np.zeros((K, K))
+        A[0:self.n_users, 0:self.n_users] = sigma_max * np.eye(self.n_users)
+        A[-self.n_movies:, -self.n_movies:] = sigma_max * np.eye(self.n_movies)
+
+        while True:
+            eta_t = next(self.stepsize_gen)
+
+            grad_Xt = self.grad_fn(Xt=Xt, X=X, y=y)
+
+            A[0:self.n_users:, self.n_users:] = -grad_Xt
+            A[self.n_users:, 0:self.n_movies] = -grad_Xt
+
+            wt = self._compute_largest_eigenvec(A=A)
+
+            u = wt[0:self.n_users] / np.linalg.norm(x=wt[0:self.n_users])
+            v = wt[self.n_users:] / np.linalg.norm(x=wt[self.n_users:])
+
+            Vt = np.matmul(u, v.T)
+
+            Xt = Xt + eta_t * (Vt - Xt)
+
+            yield Xt
+
+    def _compute_largest_eigenvec(self, A):
+        """
+        A utility method for computing the eigenvector which corresponds to the largest eigenvalue of A, using the
+        power-iterations method
+
+        :param A: The matrix whose eigenvector we wish to compute
+        :return: w - The corresponding eigenvector
+        """
+
+        wt = np.random.randn(A.shape[0])
+
+        for _ in range(self.power_method_iters):
+            w = np.matmul(A, wt)
+            wt = w / np.linalg.norm(x=w)
+
+        return wt
 
 
 ###

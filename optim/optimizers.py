@@ -156,3 +156,4 @@ class SVRG(Optimizer):
         self.k += 1
 
         return self.yt
+

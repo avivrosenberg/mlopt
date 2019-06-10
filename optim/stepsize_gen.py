@@ -58,3 +58,16 @@ def const(eta):
     assert 0. < eta <= 1.
     while True:
         yield eta
+
+
+def cond_grad():
+    """
+    :return: A generator for the optimal step-size of the conditional gradient method for matrix completion.
+    """
+
+    t = 0
+
+    while True:
+        t += 1
+
+        yield 2. / (t + 1)
