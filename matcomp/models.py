@@ -18,7 +18,7 @@ import optim.stepsize_gen
 
 class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
     def __init__(self, n_users=1000, n_movies=1000,
-                 max_iter=10 ** 3, tol=.05,
+                 max_iter=5 * (10 ** 3), tol=.05,
                  verbose=True, **kw):
         """
         Base matrix completion model.
