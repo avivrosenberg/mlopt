@@ -298,7 +298,7 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
     nuclear norm of the matrix is used instead.
     """
 
-    def __init__(self, tau=1500, power_method_iters=10, **kwargs):
+    def __init__(self, tau=1500, power_method_iters=15, **kwargs):
         """
         :param tau: Desired maximal nuclear norm value of result.
         :param power_method_iters: Amount of iterations to run the power method
@@ -307,7 +307,7 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
         """
         super().__init__(**kwargs)
         self.tau = tau
-        self.stepsize_gen = optim.stepsize_gen.cond_grad()
+        self.t = 1
         self.power_method_iters = power_method_iters
 
     @property
@@ -323,6 +323,10 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
         tsvd = TruncatedSVD(n_components=min(self.n_users, self.n_movies), algorithm="randomized")
         tsvd.fit(X=MS)
         sigma_max = tsvd.singular_values_[0]
+        ms_shape = MS.shape
+
+        # Release unnecessary memory
+        del tsvd, MS
 
         # Set the constant skeleton for the A matrix
         K = (self.n_users + self.n_movies)
@@ -331,11 +335,12 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
         A[-self.n_movies:, -self.n_movies:] = sigma_max * np.eye(self.n_movies)
 
         # Initialize Xt into an arbitrary point
-        Xt = np.random.randn(*MS.shape).astype(np.float32)
+        Xt = np.random.randn(*ms_shape).astype(np.float32)
 
         # Yield iterates
         while True:
-            eta_t = next(self.stepsize_gen)
+            eta_t = 2 / (self.t + 1)
+            self.t += 1
 
             grad_Xt = self.grad_fn(Xt=Xt, X=X, y=y)
 
