@@ -25,7 +25,7 @@ EXPERIMENT_PARAMS = dict(
 ExperimentConfig = collections.namedtuple(
     'ExperimentConfig',
     EXPERIMENT_PARAMS.keys(),
-    defaults=[None, 2**11, 2**5, 5, 0.5, 100, 0.001, 100000, 0.01, 10],
+    defaults=(None, 2**11, 2**5, 5, 0.5, 100, 0.001, 100000, 0.01, 10),
 )
 
 ExperimentResults = collections.namedtuple(
