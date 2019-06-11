@@ -320,12 +320,15 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
         # MS is the matrix of ratings representing the dataset of shape (n, m).
         MS = np.zeros((self.n_users, self.n_movies), dtype=np.float32)
         MS[X[:, 0], X[:, 1]] = y
+        ms_shape = MS.shape
+
+        if self.n_users > self.n_movies:
+            MS = MS.transpose()
 
         # Compute sigma max over the entire dataset - to be used throughout the training process
-        tsvd = TruncatedSVD(n_components=min(self.n_users, self.n_movies), algorithm="randomized")
+        tsvd = TruncatedSVD(n_components=1, algorithm="randomized")
         tsvd.fit(X=MS)
         sigma_max = tsvd.singular_values_[0]
-        ms_shape = MS.shape
 
         # Release unnecessary memory
         del tsvd, MS
