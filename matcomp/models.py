@@ -298,7 +298,7 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
     nuclear norm of the matrix is used instead.
     """
 
-    def __init__(self, tau=5, power_method_iters=10, **kwargs):
+    def __init__(self, tau=1500, power_method_iters=10, **kwargs):
         """
         :param tau: Desired maximal nuclear norm value of result.
         :param power_method_iters: Amount of iterations to run the power method
@@ -324,44 +324,32 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
         tsvd.fit(X=MS)
         sigma_max = tsvd.singular_values_[0]
 
-        # Initial iterate: low-rank projection of dataset matrix
-        ii = 0
-        tau = 0
-
-        for eigenvalue in tsvd.singular_values_:
-            if tau + eigenvalue <= self.tau:
-                tau += eigenvalue
-                ii += 1
-
-            else:
-                break
-
-        comps = tsvd.components_[0:ii, :]
-        comps_t = np.transpose(comps, axes=(0, 1))
-        Xt = np.matmul(a=comps, b=comps_t)
-
-        # Yield iterates
+        # Set the constant skeleton for the A matrix
         K = (self.n_users + self.n_movies)
-        A = np.zeros((K, K))
+        A = np.zeros((K, K)).astype(np.float32)
         A[0:self.n_users, 0:self.n_users] = sigma_max * np.eye(self.n_users)
         A[-self.n_movies:, -self.n_movies:] = sigma_max * np.eye(self.n_movies)
 
+        # Initialize Xt into an arbitrary point
+        Xt = np.random.randn(*MS.shape).astype(np.float32)
+
+        # Yield iterates
         while True:
             eta_t = next(self.stepsize_gen)
 
             grad_Xt = self.grad_fn(Xt=Xt, X=X, y=y)
 
             A[0:self.n_users:, self.n_users:] = -grad_Xt
-            A[self.n_users:, 0:self.n_movies] = -grad_Xt
+            A[self.n_users:, 0:self.n_users] = -grad_Xt.transpose()
 
             wt = self._compute_largest_eigenvec(A=A)
 
             u = wt[0:self.n_users] / np.linalg.norm(x=wt[0:self.n_users])
             v = wt[self.n_users:] / np.linalg.norm(x=wt[self.n_users:])
 
-            Vt = np.matmul(u, v.T)
+            Vt = self.tau * np.matmul(np.expand_dims(u, 1), np.expand_dims(v.T, 0))
 
-            Xt = Xt + eta_t * (Vt - Xt)
+            Xt += eta_t * (Vt - Xt)
 
             yield Xt
 
