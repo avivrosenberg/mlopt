@@ -6,6 +6,8 @@ import sys
 
 import numpy as np
 import tqdm
+import scipy
+
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.decomposition import TruncatedSVD
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
@@ -347,12 +349,14 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
             A[0:self.n_users:, self.n_users:] = -grad_Xt
             A[self.n_users:, 0:self.n_users] = -grad_Xt.transpose()
 
-            wt = self._compute_largest_eigenvec(A=A)
+            # wt = self._compute_largest_eigenvec(A=A)
+            _, wt = scipy.sparse.linalg.eigs(A=A, k=1)
+            wt = wt.astype(np.float32)
 
             u = wt[0:self.n_users] / np.linalg.norm(x=wt[0:self.n_users])
             v = wt[self.n_users:] / np.linalg.norm(x=wt[self.n_users:])
 
-            Vt = self.tau * np.matmul(np.expand_dims(u, 1), np.expand_dims(v.T, 0))
+            Vt = self.tau * np.matmul(u, v.T)
 
             Xt += eta_t * (Vt - Xt)
 
