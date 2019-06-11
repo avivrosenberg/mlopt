@@ -338,7 +338,6 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
 
         comps = tsvd.components_[0:ii, :]
         comps_t = np.transpose(comps, axes=(0, 1))
-
         Xt = np.matmul(a=comps, b=comps_t)
 
         # Yield iterates
