@@ -142,6 +142,7 @@ def run_training(model_name, dataset_name, out_dir,
 
     # Serialize results
     timestamp = dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    out_dir = os.path.join(os.path.abspath(os.path.join(os.path.abspath(__file__), os.pardir)), out_dir)
     os.makedirs(out_dir, exist_ok=True)
     outfile = os.path.join(
         out_dir, f'train-{model_name}-{dataset_name}-{timestamp}.dat'
@@ -198,6 +199,7 @@ def run_cv(model_name, dataset_name, out_dir,
     cv.fit(Xtrain, ytrain)
     print(f'=== Result: best_params={cv.best_params_}')
 
+    out_dir = os.path.join(os.path.abspath(os.path.join(os.path.abspath(__file__), os.pardir)), out_dir)
     os.makedirs(out_dir, exist_ok=True)
     outfile = os.path.join(out_dir, f'cv-{model_name}.tsv')
     print(f'=== Writing results to {outfile}...')

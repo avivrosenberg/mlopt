@@ -298,7 +298,7 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
     nuclear norm of the matrix is used instead.
     """
 
-    def __init__(self, tau=1500, power_method_iters=15, **kwargs):
+    def __init__(self, tau=1500, power_method_iters=30, **kwargs):
         """
         :param tau: Desired maximal nuclear norm value of result.
         :param power_method_iters: Amount of iterations to run the power method
