@@ -18,7 +18,7 @@ import optim.stepsize_gen
 
 class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
     def __init__(self, n_users=1000, n_movies=1000,
-                 max_iter=5 * (10 ** 3), tol=.05,
+                 max_iter=750, tol=.05,
                  verbose=True, **kw):
         """
         Base matrix completion model.
@@ -78,6 +78,7 @@ class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
 
         X, y = check_X_y(X, y)
         train_losses = np.full(self.max_iter, np.nan)
+        test_mse_ = np.full(self.max_iter, np.nan)
         test_losses = None
         if has_test:
             Xtest, ytest = check_X_y(Xtest, ytest)
@@ -106,6 +107,7 @@ class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
                     test_loss = self.loss_fn(Xt, Xtest, ytest)
                     test_losses[t] = test_loss
                     test_mse = (2 / Xtest.shape[0]) * test_loss
+                    test_mse_[t] = test_mse
 
                 pbar.set_description(pbar_desc(train_mse, test_mse))
                 pbar.update()
@@ -121,6 +123,7 @@ class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
         self.t_final_ = t
         self.train_losses_ = train_losses
         self.test_losses_ = test_losses
+        self.test_mse_ = test_mse_
 
         return self
 

@@ -69,7 +69,7 @@ if __name__ == '__main__':
             else:
                 params[res['model'].name] = res['model'].rank
 
-            test_mse[res['model'].name] = res['model'].test_losses_
+            test_mse[res['model'].name] = res['model'].test_mse_
             max_iter = res['model'].max_iter
 
         if dataset_name[-1] == 'k':
