@@ -1,6 +1,6 @@
 [
   {
-    "name": "1",
+    "name": "PD LC",
     "runner": "hw2.experiments.Runner",
     "n": 128,
     "d": 96,
@@ -13,24 +13,11 @@
     "n_repeats": 10
   },
   {
-    "name": "2",
+    "name": "PD HC",
     "runner": "hw2.experiments.Runner",
     "n": 128,
     "d": 96,
     "smax": 4,
-    "smin": 2,
-    "sol_mu": 100,
-    "sol_std": 0.001,
-    "n_iter": 200,
-    "eps": 0.01,
-    "n_repeats": 10
-  },
-  {
-    "name": "3",
-    "runner": "hw2.experiments.Runner",
-    "n": 128,
-    "d": 96,
-    "smax": 6,
     "smin": 2,
     "sol_mu": 100,
     "sol_std": 0.001,
