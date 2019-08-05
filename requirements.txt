@@ -78,7 +78,6 @@ pycodestyle==2.5.0
 pycparser==2.19
 pyflakes==2.1.1
 Pygments==2.3.1
-pyhrv==0+untagged.21.g26c270c.dirty
 pyOpenSSL==19.0.0
 pyparsing==2.4.0
 pyrsistent==0.14.11
