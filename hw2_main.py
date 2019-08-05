@@ -11,7 +11,6 @@ import numpy as np
 
 from ast import literal_eval
 
-
 DEFAULT_CFG_FILE = os.path.join('hw2', 'cfg', 'hw2-linreg.json')
 
 plt.rcParams["figure.figsize"] = [20, 10]
@@ -58,14 +57,13 @@ if __name__ == '__main__':
 
             res = matcomp_main.run_training(
                 model_name, dataset_name, matcomp_main.OUT_DIR_DEFAULT,
-                no_test_set=False, test_ratio=1/3, random_seed=42,
+                no_test_set=False, test_ratio=1 / 3, random_seed=42,
                 **best_params
             )
 
             # Save intermediate results, to be plotted at the end of the loop
             if res['model'].name == 'cr':
                 params[res['model'].name] = res['model'].tau
-
             else:
                 params[res['model'].name] = res['model'].rank
 
@@ -74,7 +72,6 @@ if __name__ == '__main__':
 
         if dataset_name[-1] == 'k':
             ds_name = "MovieLens 100K"
-
         else:
             ds_name = "MovieLens 1M"
 
@@ -99,4 +96,3 @@ if __name__ == '__main__':
     print('=== ===================================')
     plot_filenames = linreg_main.run_multi(DEFAULT_CFG_FILE, parallel=True)
     print(f'=== Saved plot files: {plot_filenames}')
-

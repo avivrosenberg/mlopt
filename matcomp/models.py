@@ -328,7 +328,8 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
         if self.n_users > self.n_movies:
             MS = MS.transpose()
 
-        # Compute sigma max over the entire dataset - to be used throughout the training process
+        # Compute sigma max over the entire dataset to be used throughout
+        # the training process
         tsvd = TruncatedSVD(n_components=1, algorithm="randomized")
         tsvd.fit(X=MS)
         sigma_max = tsvd.singular_values_[0]
@@ -370,8 +371,8 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
 
     def _compute_largest_eigenvec(self, A):
         """
-        A utility method for computing the eigenvector which corresponds to the largest eigenvalue of A, using the
-        power-iterations method
+        A utility method for computing the eigenvector which corresponds to the
+        largest eigenvalue of A, using the power-iterations method
 
         :param A: The matrix whose eigenvector we wish to compute
         :return: w - The corresponding eigenvector
