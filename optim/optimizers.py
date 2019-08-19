@@ -12,7 +12,8 @@ class Optimizer(object):
     """
 
     def __init__(self, x0, stepsize_gen, grad_fn,
-                 max_iter=math.inf, steps_per_iter=1, project_fn=None):
+                 max_iter=math.inf, steps_per_iter=1, project_fn=None,
+                 yield_x0=False):
         """
         Initializes the algorithm.
         :param x0: Starting point.
@@ -25,6 +26,8 @@ class Optimizer(object):
         step(), to run per iteration when iterating over this instance.
         :param project_fn: A function that given a point x, projects it onto
         some set, returning a new point xp.
+        :param yield_x0: Whether to return x0 as the first iterate when
+        iterating over the optimizer.
         """
         assert steps_per_iter > 0 and max_iter > 0
         self.xt = x0
@@ -33,10 +36,16 @@ class Optimizer(object):
         self.max_iter = max_iter
         self.steps_per_iter = steps_per_iter
         self.project_fn = (lambda x: x) if project_fn is None else project_fn
+        self.yield_x0 = yield_x0
 
         self.current_iter = 0
 
     def __next__(self):
+        if self.current_iter == 0 and self.yield_x0:
+            self.current_iter += 1
+            self.max_iter += 1
+            return self.xt
+
         for k in range(self.steps_per_iter):
             self.xt = self.step()
 
