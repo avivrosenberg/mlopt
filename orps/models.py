@@ -27,6 +27,7 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin, abc.ABC):
 
     def __init__(self):
         pass
+        self._rt = None
 
     @staticmethod
     def loss_fn(r: np.ndarray, x: np.ndarray):
@@ -36,7 +37,6 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin, abc.ABC):
     def grad_fn(r: np.ndarray, x: np.ndarray):
         return - r * (1. / np.dot(x, r))
 
-    @abc.abstractmethod
     def fit(self, R: np.ndarray, save_iterates=True, save_loss_fns=True, **kw):
         """
         Fits a rebalancing constant portfolio, which is a point within the
@@ -49,6 +49,43 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin, abc.ABC):
         (as a callable accepting a single parameter).
         :return: self
         """
+        # R is the reward (price ratio of day t+1 to day t) per asset
+        assert R.ndim == 2
+        T, d = R.shape
+        R = R.astype(np.float32)
+
+        # rt is the current return vector
+        rt = R[0]
+
+        # pt is the current iterate
+        pt = np.full((d,), 1. / d, dtype=np.float32)
+
+        # Save portfolios
+        P = np.zeros_like(R) if save_iterates else None
+
+        # Save loss functions
+        loss_fns = [] if save_loss_fns else None
+
+        # Iterate over optimizer
+        self._rt = R[0]
+        for t, pt in enumerate(self._pt_generator(R)):
+            self._rt = R[t]
+
+            if save_iterates:
+                P[t] = pt
+
+            if save_loss_fns:
+                loss_fns.append(partial(self.loss_fn,
+                                        np.array(rt, copy=False)))
+
+        # save fit results
+        self.p_ = pt
+        self.P_ = P
+        self.loss_fns_ = loss_fns
+        return self
+
+    @abc.abstractmethod
+    def _pt_generator(self, R: np.ndarray):
         pass
 
     def wealth(self, R: np.ndarray, P: np.ndarray = None):
@@ -84,6 +121,8 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin, abc.ABC):
 
         :param p_fixed: Portfolio (distribution of assets) that will be used to
         as the "best in hindsight" (for all rounds).
+        :param average: Whether to calculate the average regret (divide by
+        t, the number of the round) or not.
         :return: Array of shape (T,), containing regret of the algorithm at
         each trading round compared to the fixed portfolio.
         """
@@ -108,58 +147,28 @@ class OGDOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
     """
     Implements online gradient descent (OGD) for the ORPS problem.
     """
-
     def __init__(self):
         super().__init__()
 
-    def fit(self, R: np.ndarray, save_iterates=True, save_loss_fns=True, **kw):
-        # R is the reward (price ratio of day t+1 to day t) per asset
-        assert R.ndim == 2
+    def _pt_generator(self, R: np.ndarray):
         T, d = R.shape
-        R = R.astype(np.float32)
-
-        # rt is the current return vector
-        rt = R[0]
-
-        # pt is the current iterate
-        pt = np.full((d,), 1. / d, dtype=np.float32)
-
-        # Save portfolios
-        P = np.zeros_like(R) if save_iterates else None
-
-        # Save loss functions
-        loss_fns = [] if save_loss_fns else None
 
         # Hyperparameters
         D = math.sqrt(2)
-        # G = np.max(np.linalg.norm(R, axis=1))
         G = np.max(np.linalg.norm(R, axis=1) / np.sum(R, axis=1))
         eta = D / (G * math.sqrt(T))
         print(f'eta(OGD)={eta}')
 
+        p0 = np.full((d,), 1. / d, dtype=np.float32)
+
         opt = optimizers.GradientDescent(
-            x0=pt, max_iter=T, yield_x0=True,
+            x0=p0, max_iter=T, yield_x0=True,
             stepsize_gen=stepsize_gen.const(eta),
-            grad_fn=lambda x: self.grad_fn(rt, x),
+            grad_fn=lambda x: self.grad_fn(self._rt, x),
             project_fn=projections.SimplexProjection(),
         )
 
-        # Iterate over optimizer
-        for t, pt in enumerate(opt, start=0):
-            rt = R[t]
-
-            if save_iterates:
-                P[t] = pt
-
-            if save_loss_fns:
-                loss_fns.append(partial(self.loss_fn,
-                                        np.array(rt, copy=False)))
-
-        # save fit results
-        self.p_ = pt
-        self.P_ = P
-        self.loss_fns_ = loss_fns
-        return self
+        return opt
 
 
 class RFTLOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
@@ -170,20 +179,8 @@ class RFTLOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
     def __init__(self):
         super().__init__()
 
-    def fit(self, R: np.ndarray, save_iterates=True, save_loss_fns=True, **kw):
-        # R is the reward (price ratio of day t+1 to day t) per asset
-        assert R.ndim == 2
+    def _pt_generator(self, R: np.ndarray):
         T, d = R.shape
-        R = R.astype(np.float32)
-
-        # pt is the current iterate
-        pt = np.full((d,), 1. / d, dtype=np.float32)
-
-        # Save portfolios
-        P = np.zeros_like(R) if save_iterates else None
-
-        # Save loss functions
-        loss_fns = [] if save_loss_fns else None
 
         # Hyperparameters
         D = math.sqrt(math.log(d))
@@ -191,24 +188,13 @@ class RFTLOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
         eta = D / (G * math.sqrt(2 * T))
         print(f'eta(RFTL)={eta}')
 
+        pt = np.full((d,), 1. / d, dtype=np.float32)
+
         for t in range(T):
             rt = R[t]
-
-            if save_iterates:
-                P[t] = pt
-
-            if save_loss_fns:
-                loss_fns.append(partial(self.loss_fn,
-                                        np.array(rt, copy=False)))
-
             gt = self.grad_fn(rt, pt)
-
             pt_exp_gt = pt * np.exp(-eta * gt)
             pt = pt_exp_gt / np.sum(pt_exp_gt)
 
-        # save fit results
-        self.p_ = pt
-        self.P_ = P
-        self.loss_fns_ = loss_fns
-        return self
+            yield pt
 
