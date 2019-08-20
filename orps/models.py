@@ -147,6 +147,7 @@ class OGDOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
     """
     Implements online gradient descent (OGD) for the ORPS problem.
     """
+
     def __init__(self):
         super().__init__()
 
@@ -196,3 +197,71 @@ class RFTLOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
 
             yield pt
 
+
+class NewtonStepOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
+    def __init__(self):
+        super().__init__()
+
+    def _pt_generator(self, R: np.ndarray):
+        T, d = R.shape
+
+        # Hyperparams
+        D = math.sqrt(2)
+        G = np.max(np.linalg.norm(R, axis=1) / np.sum(R, axis=1))
+        alpha = math.inf
+        gamma = 0.5 * min(1 / 4 / G / D, alpha)
+        eps = 1 / (gamma ** 2) / (D ** 2)
+
+        A = eps * np.eye(d)
+        Ainv = 1 / eps * np.eye(d)
+
+        pt = np.full((d,), 1. / d, dtype=np.float32)
+        for t in range(T):
+            rt = R[t]
+            gt = self.grad_fn(rt, pt)
+
+            gtgt = np.outer(gt, gt)
+            A = A + gtgt
+            Ainv = Ainv - np.dot(Ainv, np.dot(gtgt, Ainv)) / \
+                   (1 + np.dot(gt, np.dot(Ainv, gt)))
+
+            yt = pt - (1 / gamma) * np.dot(Ainv, gt)
+            pt = self.project_cg(yt, A, eta_min=0.05)
+
+            yield pt
+
+    @staticmethod
+    def project_cg(y, A=None, eta_min=0.):
+        """
+        Projects a point onto the probabilistic simplex where the projection is
+        performed with respect to the metric induced by the matrix A.
+
+        Uses the conditional-gradient (Frank-Wolfe) method to solve the
+        optimization problem.
+
+        :param y:  The point to project onto the Simplex.
+        :param A: The metric-inducing matrix. If none, an identity matrix
+        will be used, which corresponds to a regular norm projection.
+        :param eta_min: Stop optimization if step size is smaller than this.
+        :return: The projected point.
+        """
+        d, = y.shape
+        I = np.eye(d, dtype=np.float32)
+
+        if A is None:
+            A = I
+
+        pt = I[0]
+        for t in range(1, d + 1):
+            eta = 2 / (1 + t)
+            if eta < eta_min:
+                break
+
+            gt = 2 * np.dot(A, pt - y)
+
+            imin = np.argmin(gt)
+            vt = I[imin]
+
+            pt = pt + eta * (vt - pt)
+
+        return pt
