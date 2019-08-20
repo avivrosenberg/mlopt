@@ -19,15 +19,15 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin, abc.ABC):
     function at time t of f_t(x) = -log(np.dot(r_t, x)) where r_t is the
     returns vector for assets at time t.
 
-    Attributes:
+    Attributes (after fitting model):
         p_: The fitted portfolio (a distribution over assets).
         P_: Iterates of the portfolio.
         loss_fns_: Loss functions produced each iterate.
+        eta_: Learning rate used
     """
 
     def __init__(self):
-        pass
-        self._rt = None
+        self.__rt__ = None
 
     @staticmethod
     def loss_fn(r: np.ndarray, x: np.ndarray):
@@ -67,9 +67,9 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin, abc.ABC):
         loss_fns = [] if save_loss_fns else None
 
         # Iterate over optimizer
-        self._rt = R[0]
+        self.__rt__ = R[0]  # To allow _pt_generator access to rt
         for t, pt in enumerate(self._pt_generator(R)):
-            self._rt = R[t]
+            self.__rt__ = R[t]
 
             if save_iterates:
                 P[t] = pt
@@ -156,15 +156,14 @@ class OGDOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
         # Hyperparameters
         D = math.sqrt(2)
         G = np.max(np.linalg.norm(R, axis=1) / np.sum(R, axis=1))
-        eta = D / (G * math.sqrt(T))
-        print(f'eta(OGD)={eta}')
+        self.eta_ = D / (G * math.sqrt(T))
 
         p0 = np.full((d,), 1. / d, dtype=np.float32)
 
         opt = optimizers.GradientDescent(
             x0=p0, max_iter=T, yield_x0=True,
-            stepsize_gen=stepsize_gen.const(eta),
-            grad_fn=lambda x: self.grad_fn(self._rt, x),
+            stepsize_gen=stepsize_gen.const(self.eta_),
+            grad_fn=lambda x: self.grad_fn(self.__rt__, x),
             project_fn=projections.SimplexProjection(),
         )
 
@@ -185,15 +184,14 @@ class RFTLOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
         # Hyperparameters
         D = math.sqrt(math.log(d))
         G = np.max(np.max(np.abs(R), axis=1) / np.sum(R, axis=1))
-        eta = D / (G * math.sqrt(2 * T))
-        print(f'eta(RFTL)={eta}')
+        self.eta_ = D / (G * math.sqrt(2 * T))
 
         pt = np.full((d,), 1. / d, dtype=np.float32)
 
         for t in range(T):
             rt = R[t]
             gt = self.grad_fn(rt, pt)
-            pt_exp_gt = pt * np.exp(-eta * gt)
+            pt_exp_gt = pt * np.exp(-self.eta_ * gt)
             pt = pt_exp_gt / np.sum(pt_exp_gt)
 
             yield pt
