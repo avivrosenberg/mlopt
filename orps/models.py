@@ -2,7 +2,6 @@ import math
 from functools import partial
 
 import numpy as np
-from sklearn.utils import check_array
 from sklearn.base import BaseEstimator, DensityMixin
 from sklearn.utils.validation import check_is_fitted
 
@@ -28,7 +27,7 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin):
         """
         Fits a rebalancing constant portfolio, which is a point within the
         unit simplex to the stock price data in X.
-        :param R: Array of shape (n,d) where n is the number of time points
+        :param R: Array of shape (T,d) where T is the number of time points
         (e.g. days) and d is the number of different assets. Each entry is
         the asset price-ratio between the current and previous time.
         :param save_iterates: Whether to save each iterate.
@@ -84,14 +83,14 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin):
     def wealth(self, R: np.ndarray, P: np.ndarray = None):
         """
         Calculate the wealth of the algorithm at each trading round.
-        :param R: Array of shape (n,d) where n is the number of time points
+        :param R: Array of shape (T,d) where T is the number of time points
         (e.g. days) and d is the number of different assets. Each entry is
         the asset price-ratio between the current and previous time.
-        :param P: Array of shape (n,d) or (d,) representing the Portfolio at
+        :param P: Array of shape (T,d) or (d,) representing the Portfolio at
         each round or a fixed portfolio.
         None (default) specifies that the iterates from fit() will be
         used (Requires that the iterates were save when fitting).
-        :return: Array of shape (n,), containing wealth of the algorithm at
+        :return: Array of shape (T,), containing wealth of the algorithm at
         each trading round.
         """
         assert R.ndim == 2
@@ -105,29 +104,30 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin):
 
         return np.cumprod(np.sum(R * P, axis=1), axis=0)
 
-    def score(self, X, y=None):
+    def regret(self, p_fixed: np.ndarray, average=False):
         """
-        TODO: Implement regret
-        :param X: Asset price data
-        :param y: Portfolio (distribution of assets). If None, the fitted
-        portfolio will be used.
-        :return:
+        Calculates the regret of the fitted model as a function of
+        the number of rounds, compared to a fixed portfolio.
+        This requires that the model was fitted with save_loss_fns and
+        save_iterates both true.
+
+        :param p_fixed: Portfolio (distribution of assets) that will be used to
+        as the "best in hindsight" (for all rounds).
+        :return: Array of shape (T,), containing regret of the algorithm at
+        each trading round compared to the fixed portfolio.
         """
-        check_is_fitted(self, ['p_', 'losses_', 'wealth_'])
+        check_is_fitted(self, ['p_', 'P_', 'loss_fns_'])
+        assert p_fixed.ndim == 1 and p_fixed.shape[0] == self.P_.shape[1]
 
-        X = check_array(X, ensure_2d=True, ensure_min_features=2,
-                        ensure_min_samples=2, dtype=np.float32)
-        if y is None:
-            y = self.p_
+        T = len(self.loss_fns_)
+        regret = np.zeros((T,), dtype=np.float32)
 
-        R = (X[1:, :] / X[:-1, :])
+        for t, loss_fn in enumerate(self.loss_fns_):
+            pt = self.P_[t]
+            ft = loss_fn(pt)
+            regret[t] = regret[t - 1] + ft - loss_fn(p_fixed)
 
-        pass
+        if average:
+            regret /= np.arange(start=1, stop=T+1)
 
-    def predict(self, X):
-        # Input validation
-        check_is_fitted(self, ['p_', 'losses_', 'wealth_'])
-        X = check_array(X)
-
-        # TODO
-        return None
+        return regret
