@@ -220,48 +220,16 @@ class NewtonStepOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
             rt = R[t]
             gt = self.grad_fn(rt, pt)
 
+            # Update the gradient
             gtgt = np.outer(gt, gt)
             A = A + gtgt
             Ainv = Ainv - np.dot(Ainv, np.dot(gtgt, Ainv)) / \
                    (1 + np.dot(gt, np.dot(Ainv, gt)))
 
             yt = pt - (1 / gamma) * np.dot(Ainv, gt)
-            pt = self.project_cg(yt, A, eta_min=0.05)
+
+            proj = projections.MetricInducedSimplexProjection(A, eta_min=0.05)
+            pt = proj(yt)
 
             yield pt
 
-    @staticmethod
-    def project_cg(y, A=None, eta_min=0.):
-        """
-        Projects a point onto the probabilistic simplex where the projection is
-        performed with respect to the metric induced by the matrix A.
-
-        Uses the conditional-gradient (Frank-Wolfe) method to solve the
-        optimization problem.
-
-        :param y:  The point to project onto the Simplex.
-        :param A: The metric-inducing matrix. If none, an identity matrix
-        will be used, which corresponds to a regular norm projection.
-        :param eta_min: Stop optimization if step size is smaller than this.
-        :return: The projected point.
-        """
-        d, = y.shape
-        I = np.eye(d, dtype=np.float32)
-
-        if A is None:
-            A = I
-
-        pt = I[0]
-        for t in range(1, d + 1):
-            eta = 2 / (1 + t)
-            if eta < eta_min:
-                break
-
-            gt = 2 * np.dot(A, pt - y)
-
-            imin = np.argmin(gt)
-            vt = I[imin]
-
-            pt = pt + eta * (vt - pt)
-
-        return pt

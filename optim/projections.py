@@ -1,6 +1,58 @@
 import numpy as np
 
 
+class MetricInducedSimplexProjection(object):
+    """
+    Projects points onto a unit simplex, but uses a metric induces by a
+    given matrix instead of a regular euclidean norm.
+
+    Solves the optimization problem:
+        arg min_{z in S} (z-x)^T A (z-x)
+    where x is the point to project and A is a positive definite matrix.
+
+    This implementation uses the conditional-gradient (Frank-Wolfe) method to
+    solve the optimization problem.
+    """
+
+    def __init__(self, A: np.ndarray = None, eta_min=0.):
+        """
+        :param A: The metric-inducing matrix. Should be positive definite.
+        If set to None, an identity matrix will be used which corresponds to
+        using a regular euclidean norm for the projection.
+        :param eta_min: Stop optimization if step size is smaller than this.
+        """
+        self.A = A
+        self.eta_min = eta_min
+
+    def __call__(self, y, **kw):
+        d, = y.shape
+
+        # The "extreme points" of the unit simplex are the standard basis
+        # vectors in d-dimensions
+        I = np.eye(d, dtype=np.float32)
+        A = I if self.A is None else self.A
+
+        pt = I[0]
+        for t in range(1, d + 1):
+            eta = 2 / (1 + t)
+            if eta < self.eta_min:
+                break
+
+            # Gradient of the function we're optimizing
+            gt = 2 * np.dot(A, pt - y)
+
+            # Solve arg min_{v in V(S)} <v, gt>, where V(S) are the extreme
+            # points of the Simplex and <.,.> is an inner product.
+            # Solving this is equivalent to taking the standard basis vector
+            # which selects the minimal element from gt.
+            imin = np.argmin(gt)
+            vt = I[imin]
+
+            pt = pt + eta * (vt - pt)
+
+        return pt
+
+
 class SimplexProjection(object):
     """
     Projects onto Simplex.
@@ -11,6 +63,7 @@ class SimplexProjection(object):
         ICPR 2014.
         http://www.mblondel.org/publications/mblondel-icpr2014.pdf
     """
+
     def __init__(self, method='sort', z=1):
         """
         :param method: must be either 'sort', 'pivot' or 'bisection'.
