@@ -26,8 +26,13 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin, abc.ABC):
         eta_: Learning rate used
     """
 
-    def __init__(self):
+    def __init__(self, save_iterates=True):
+        """
+        :param save_iterates: Whether to save each iterate.
+        """
         self.__rt__ = None
+        self.save_iterates = save_iterates
+
 
     @staticmethod
     def loss_fn(r: np.ndarray, x: np.ndarray):
@@ -37,51 +42,33 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin, abc.ABC):
     def grad_fn(r: np.ndarray, x: np.ndarray):
         return - r * (1. / np.dot(x, r))
 
-    def fit(self, R: np.ndarray, save_iterates=True, save_loss_fns=True, **kw):
+    def fit(self, R: np.ndarray, **kw):
         """
         Fits a rebalancing constant portfolio, which is a point within the
         unit simplex to the stock price data in X.
         :param R: Array of shape (T,d) where T is the number of time points
         (e.g. days) and d is the number of different assets. Each entry is
         the asset price-ratio between the current and previous time.
-        :param save_iterates: Whether to save each iterate.
-        :param save_loss_fns: Whether to save each round's loss function
-        (as a callable accepting a single parameter).
         :return: self
         """
         # R is the reward (price ratio of day t+1 to day t) per asset
         assert R.ndim == 2
-        T, d = R.shape
         R = R.astype(np.float32)
 
-        # rt is the current return vector
-        rt = R[0]
-
-        # pt is the current iterate
-        pt = np.full((d,), 1. / d, dtype=np.float32)
-
         # Save portfolios
-        P = np.zeros_like(R) if save_iterates else None
-
-        # Save loss functions
-        loss_fns = [] if save_loss_fns else None
+        P = np.zeros_like(R) if self.save_iterates else None
 
         # Iterate over optimizer
         self.__rt__ = R[0]  # To allow _pt_generator access to rt
         for t, pt in enumerate(self._pt_generator(R)):
             self.__rt__ = R[t]
 
-            if save_iterates:
+            if self.save_iterates:
                 P[t] = pt
-
-            if save_loss_fns:
-                loss_fns.append(partial(self.loss_fn,
-                                        np.array(rt, copy=False)))
 
         # save fit results
         self.p_ = pt
         self.P_ = P
-        self.loss_fns_ = loss_fns
         return self
 
     @abc.abstractmethod
@@ -117,30 +104,34 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin, abc.ABC):
 
         return np.cumprod(np.sum(R * P, axis=1), axis=0)
 
-    def regret(self, p_fixed: np.ndarray, average=False):
+    def regret(self, R: np.ndarray, Pstar: np.ndarray, average=False):
         """
-        Calculates the regret of the fitted model as a function of
-        the number of rounds, compared to a fixed portfolio.
-        This requires that the model was fitted with save_loss_fns and
-        save_iterates both true.
-
-        :param p_fixed: Portfolio (distribution of assets) that will be used to
-        as the "best in hindsight" (for all rounds).
-        :param average: Whether to calculate the average regret (divide by
-        t, the number of the round) or not.
-        :return: Array of shape (T,), containing regret of the algorithm at
-        each trading round compared to the fixed portfolio.
+        Calculates the regret of the algorithm vs the best fixed portfolio
+        in hindsight.
+        :param R: Array of shape (T,d) containing the asset returns data
+        that the model was fitted with.
+        :param Pstar: Array of shape (T,d), each row t containing the best
+        fixed portfolio in hindsight up to time t.
+        :param average: Whether to calculate average regret.
+        :return: An array of shape (T,) with the regret at each time.
         """
-        check_is_fitted(self, ['p_', 'P_', 'loss_fns_'])
-        assert p_fixed.ndim == 1 and p_fixed.shape[0] == self.P_.shape[1]
+        check_is_fitted(self, ['p_', 'P_'])
+        assert R.shape == Pstar.shape
 
-        T = len(self.loss_fns_)
-        regret = np.zeros((T,), dtype=np.float32)
+        T, d = R.shape
 
-        for t, loss_fn in enumerate(self.loss_fns_):
-            pt = self.P_[t]
-            ft = loss_fn(pt)
-            regret[t] = regret[t - 1] + ft - loss_fn(p_fixed)
+        # Cumulative loss
+        F = np.cumsum(-np.log(np.sum(R * self.P_, axis=1)))
+
+        # Regret term
+        Fstar = np.zeros_like(F)
+        for t in range(T):
+            # pstar is the best fixed portfolio up to time t
+            pstar = Pstar[t]
+            # Calculate the sum of the loss up to time t
+            Fstar[t] = np.sum(-np.log(np.sum(R[0:t+1] * pstar, axis=1)))
+
+        regret = F - Fstar
 
         if average:
             regret /= np.arange(start=1, stop=T + 1)
