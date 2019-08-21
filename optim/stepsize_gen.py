@@ -55,7 +55,7 @@ def sgd_sc(alpha):
 
 
 def const(eta):
-    assert 0. < eta <= 1.
+    assert eta > 0.
     while True:
         yield eta
 
