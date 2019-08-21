@@ -252,18 +252,22 @@ class BestFixedRebalancingPortfolio(BaseEstimator, DensityMixin):
         f_t(x) = -\log(r_t^T x)
 
     Attributes:
-        pt_: The fitted portfolio
+        p_: The fitted portfolio
+        P_: The fitted portfolio at each time point (only if continuous=True)
     """
 
-    def __init__(self, eta_min=0., max_iter=None):
+    def __init__(self, eta_min=0., max_iter=None, continuous=False):
         """
         :param eta_min: Stop optimization if step size is smaller than this.
         :param max_iter: Maximum number of iterations to fit for. Set to
         None to use the max_iter=d, the dimension of the input.
+        :param continuous: Whether to fit continuously to each time point or
+        only to the entire dataset (final time).
         """
         super().__init__()
         self.eta_min = eta_min
         self.max_iter = max_iter
+        self.continuous = continuous
 
     @staticmethod
     def grad_fn(R, x):
@@ -281,12 +285,21 @@ class BestFixedRebalancingPortfolio(BaseEstimator, DensityMixin):
     def fit(self, R: np.ndarray):
         """
         Fits a rebalancing constant portfolio, which is a point within the
-        unit simplex to the stock price data in X.
+        unit simplex to the stock price data in R.
         :param R: Array of shape (T,d) where T is the number of time points
         (e.g. days) and d is the number of different assets. Each entry is
         the asset price-ratio between the current and previous time.
         :return: self
         """
+        if not self.continuous:
+            self.p_ = self._fit(R)
+        else:
+            self.P_ = np.empty_like(R)
+            for t in range(R.shape[0]):
+                self.P_[t] = self._fit(R[0:t+1])
+            self.p_ = self.P_[-1]
+
+    def _fit(self, R: np.ndarray):
         # R is the reward (price ratio of day t+1 to day t) per asset
         assert R.ndim == 2
         T, d = R.shape
@@ -315,8 +328,7 @@ class BestFixedRebalancingPortfolio(BaseEstimator, DensityMixin):
 
             pt = pt + eta * (vt - pt)
 
-        self.p_ = pt
-        return self
+        return pt
 
     def wealth(self, R: np.ndarray):
         """
