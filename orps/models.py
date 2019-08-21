@@ -86,6 +86,11 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin, abc.ABC):
 
     @abc.abstractmethod
     def _pt_generator(self, R: np.ndarray):
+        """
+        Generator returning pt, the portfolio at iteration t.
+        :param R: The asset returns data matrix of shape (T, d).
+        :return: A generator over iterates.
+        """
         pass
 
     def wealth(self, R: np.ndarray, P: np.ndarray = None):
@@ -233,3 +238,132 @@ class NewtonStepOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
 
             yield pt
 
+
+class BestFixedRebalancingPortfolio(BaseEstimator, DensityMixin):
+    r"""
+    Finds the best fixed (in hindsight) rebalancing portfolio s
+    (distribution over assets). Note that this model is NOT an online
+    optimization algorithm since it optimizes over an entire asset dataset
+    each step, not sample by sample.
+
+    Solves the optimization problem:
+        \arg\min_{x in S} \sum_{t=1}^{T} f_t(x)
+    where
+        f_t(x) = -\log(r_t^T x)
+
+    Attributes:
+        pt_: The fitted portfolio
+    """
+
+    def __init__(self, eta_min=0., max_iter=None):
+        """
+        :param eta_min: Stop optimization if step size is smaller than this.
+        :param max_iter: Maximum number of iterations to fit for. Set to
+        None to use the max_iter=d, the dimension of the input.
+        """
+        super().__init__()
+        self.eta_min = eta_min
+        self.max_iter = max_iter
+
+    @staticmethod
+    def grad_fn(R, x):
+        T, d = R.shape
+
+        # Grad of -log(r x) is
+        #   r * (-1 / (r^T x)) = r * a
+        # Where a is a scalar
+        a = np.dot(R, x)
+        a = - 1 / a
+        a = np.reshape(a, (T, -1))
+
+        return np.sum(R * a, axis=0)
+
+    def fit(self, R: np.ndarray):
+        """
+        Fits a rebalancing constant portfolio, which is a point within the
+        unit simplex to the stock price data in X.
+        :param R: Array of shape (T,d) where T is the number of time points
+        (e.g. days) and d is the number of different assets. Each entry is
+        the asset price-ratio between the current and previous time.
+        :return: self
+        """
+        # R is the reward (price ratio of day t+1 to day t) per asset
+        assert R.ndim == 2
+        T, d = R.shape
+        R = R.astype(np.float32)
+
+        I = np.eye(d, dtype=np.float32)
+
+        # pt is the current iterate
+        pt = I[0]
+        max_iter = d if self.max_iter is None else self.max_iter
+        for t in range(1, max_iter + 1):
+            eta = 2 / (1 + t)
+            if eta < self.eta_min:
+                break
+
+            # rt is the current return vector
+            # Gradient of the function we're optimizing
+            gt = self.grad_fn(R, pt)
+
+            # Solve arg min_{v in V(S)} <v, gt>, where V(S) are the extreme
+            # points of the Simplex and <.,.> is an inner product.
+            # Solving this is equivalent to taking the standard basis vector
+            # which selects the minimal element from gt.
+            imin = np.argmin(gt)
+            vt = I[imin]
+
+            pt = pt + eta * (vt - pt)
+
+        self.p_ = pt
+        return self
+
+    def wealth(self, R: np.ndarray):
+        """
+        Calculate the wealth of the algorithm at each trading round.
+        :param R: Array of shape (T,d) where T is the number of time points
+        (e.g. days) and d is the number of different assets. Each entry is
+        the asset price-ratio between the current and previous time.
+        :return: Array of shape (T,), containing wealth of the algorithm at
+        each trading round.
+        """
+        assert R.ndim == 2
+        check_is_fitted(self, ['p_'])
+        p = self.p_
+        assert p.shape[0] == R.shape[1]
+
+        return np.cumprod(np.sum(R * p, axis=1), axis=0)
+
+
+class BestSingleAssetRebalancingPortfolio(BestFixedRebalancingPortfolio):
+    """
+    Finds the best fixed (in hindsight) rebalancing portfolio which only
+    invests in a single asset.
+    Note that this model is NOT an online optimization algorithm since it
+    optimizes over an entire asset dataset each step, not sample by sample.
+
+    Attributes:
+        pt_: The fitted portfolio
+    """
+
+    def fit(self, R: np.ndarray):
+        """
+        Fits a rebalancing constant portfolio consisting of a single asset
+        only.
+        :param R: Array of shape (T,d) where T is the number of time points
+        (e.g. days) and d is the number of different assets. Each entry is
+        the asset price-ratio between the current and previous time.
+        :return: self
+        """
+        # R is the reward (price ratio of day t+1 to day t) per asset
+        assert R.ndim == 2
+        T, d = R.shape
+        R = R.astype(np.float32)
+
+        idx_best_single = np.argmax(np.prod(R, axis=0))
+
+        p_best_single = np.zeros((d,), dtype=np.float32)
+        p_best_single[idx_best_single] = 1.
+
+        self.p_ = p_best_single
+        return self
