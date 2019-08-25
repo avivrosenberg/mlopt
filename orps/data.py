@@ -1,6 +1,7 @@
 import scipy.io
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 from util.util import download_data, cachedproperty
 
@@ -45,3 +46,26 @@ class EHazanPFDataset(object):
 
     def to_numpy(self):
         return self._df.to_numpy(copy=True)
+
+    def plot_single(self, i, label=None, ax: plt.Axes = None):
+        data = self._df.iloc[:, i].to_numpy()
+        t = np.arange(len(data))
+
+        if not label:
+            label = self.asset_names()[i]
+
+        if ax is None:
+            fig, ax = plt.subplots(1, 1)
+            ax.set_xlabel('t (days)')
+            ax.set_ylabel('price (USD)')
+
+        ax.plot(t, data, label=label)
+        ax.legend()
+        return ax
+
+    def plot_random(self, n, ax: plt.Axes = None):
+        T, d = self._df.shape
+        for i in np.random.choice(d, n):
+            ax = self.plot_single(i, ax=ax, label=None)
+
+        return ax
