@@ -3,7 +3,7 @@ import numpy as np
 
 class MetricInducedSimplexProjection(object):
     """
-    Projects points onto a unit simplex, but uses a metric induces by a
+    Projects points onto a unit simplex, but uses a metric induced by a
     given matrix instead of a regular euclidean norm.
 
     Solves the optimization problem:
