@@ -24,6 +24,8 @@ class OnlineRebalancingPortfolio(BaseEstimator, DensityMixin, abc.ABC):
         P_: Iterates of the portfolio.
         loss_fns_: Loss functions produced each iterate.
         eta_: Learning rate used
+        G_: Approximated max gradient
+        D_: Approximated diameter of optimization region
     """
 
     def __init__(self, save_iterates=True):
@@ -151,9 +153,9 @@ class OGDOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
         T, d = R.shape
 
         # Hyperparameters
-        D = math.sqrt(2)
-        G = np.max(np.linalg.norm(R, axis=1) / np.sum(R, axis=1))
-        self.eta_ = D / (G * math.sqrt(T))
+        self.D_ = math.sqrt(2)
+        self.G_ = np.max(np.linalg.norm(R, axis=1) / np.sum(R, axis=1))
+        self.eta_ = self.D_ / (self.G_ * math.sqrt(T))
 
         p0 = np.full((d,), 1. / d, dtype=np.float32)
 
@@ -179,9 +181,9 @@ class RFTLOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
         T, d = R.shape
 
         # Hyperparameters
-        D = math.sqrt(math.log(d))
-        G = np.max(np.max(np.abs(R), axis=1) / np.sum(R, axis=1))
-        self.eta_ = D / (G * math.sqrt(2 * T))
+        self.D_ = math.sqrt(math.log(d))
+        self.G_ = np.max(np.max(np.abs(R), axis=1) / np.sum(R, axis=1))
+        self.eta_ = self.D_ / (self.G_ * math.sqrt(2 * T))
 
         pt = np.full((d,), 1. / d, dtype=np.float32)
 
@@ -202,11 +204,11 @@ class NewtonStepOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
         T, d = R.shape
 
         # Hyperparams
-        D = math.sqrt(2)
-        G = np.max(np.linalg.norm(R, axis=1) / np.sum(R, axis=1))
+        self.D_ = math.sqrt(2)
+        self.G_ = np.max(np.linalg.norm(R, axis=1) / np.sum(R, axis=1))
         alpha = math.inf
-        gamma = 0.5 * min(1 / 4 / G / D, alpha)
-        eps = 1 / (gamma ** 2) / (D ** 2)
+        gamma = 0.5 * min(1 / 4 / self.G_ / self.D_, alpha)
+        eps = 1 / (gamma ** 2) / (self.D_ ** 2)
 
         A = eps * np.eye(d)
         Ainv = 1 / eps * np.eye(d)
@@ -232,7 +234,7 @@ class NewtonStepOnlineRebalancingPortfolio(OnlineRebalancingPortfolio):
 
 class BestFixedRebalancingPortfolio(BaseEstimator, DensityMixin):
     r"""
-    Finds the best fixed (in hindsight) rebalancing portfolio s
+    Finds the best fixed (in hindsight) rebalancing portfolio
     (distribution over assets). Note that this model is NOT an online
     optimization algorithm since it optimizes over an entire asset dataset
     each step, not sample by sample.
