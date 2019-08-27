@@ -3,6 +3,7 @@ Generator functions for optimal step-sizes of various optimization algorithms
 under different conditions.
 """
 import math
+from typing import Callable, Iterable
 
 
 def pgd_nonsmooth(D, G):
@@ -60,14 +61,20 @@ def const(eta):
         yield eta
 
 
+def custom(fn: Callable, idx_range: Iterable = None):
+    if not idx_range:
+        idx_range = range(2 ** 63 - 1)
+
+    for idx in idx_range:
+        yield fn(idx)
+
+
 def cond_grad():
     """
-    :return: A generator for the optimal step-size of the conditional gradient method for matrix completion.
+    :return: A generator for the optimal step-size of the conditional gradient
+    method for matrix completion.
     """
-
     t = 0
-
     while True:
         t += 1
-
         yield 2. / (t + 1)
