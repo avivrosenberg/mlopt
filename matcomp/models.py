@@ -1,12 +1,14 @@
 import abc
 import copy
 import inspect
+import math
 import os
 import sys
 
 import numpy as np
 import tqdm
 import scipy
+import scipy.sparse.linalg
 
 from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.decomposition import TruncatedSVD
@@ -14,25 +16,26 @@ from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 
 import optim.optimizers as opt
 import optim.stepsize_gen
+from optim import projections
 
 
 class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
     def __init__(self, n_users=1000, n_movies=1000,
-                 max_iter=750, tol=.05,
+                 max_iter=750, eps=.05,
                  verbose=True, **kw):
         """
         Base matrix completion model.
         :param n_users: Number of users.
         :param n_movies: Number of movies.
         :param max_iter: Max number of iterations for training fit.
-        :param tol: Stop training if MSE is less than this.
+        :param eps: Stop training if MSE is less than this.
         :param verbose: Whether to show training progress.
         """
         super().__init__()
         self.n_users = n_users
         self.n_movies = n_movies
         self.max_iter = max_iter
-        self.tol = tol
+        self.eps = eps
         self.verbose = verbose
 
     def loss_fn(self, Xt, X, y):
@@ -115,7 +118,7 @@ class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
                 t += 1
                 if t >= self.max_iter:
                     break
-                if train_mse < self.tol:
+                if train_mse < self.eps:
                     break
 
         # Save training results
@@ -385,6 +388,134 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
             wt = w / np.linalg.norm(x=w)
 
         return wt
+
+
+class SVRGCGMatrixCompletion(MatrixCompletion):
+    """
+    Implements Algorithm 1 from
+        Garber, D., & Kaplan, A. (2018).
+        Fast Stochastic Algorithms for Low-rank and Nonsmooth Matrix Problems.
+        arXiv preprint arXiv:1809.10477.‏
+    """
+
+    def __init__(self, tau=1500, reg_lambda=2., mu=None,
+                 sigma_m=1., sigma_q=5., svd_rank=1, svd_n_iter=None, **kw):
+        """
+        :param tau: Nuclear norm bound
+        :param reg_lambda: Regularization factor
+        :param mu: Smoothness parameter of approximate L1 regularizer
+        :param sigma_m: Variance of noise added to observations
+        :param sigma_q: Variance of noise for stochastic gradients
+        :param kw: Extra args for base class
+        """
+        super().__init__(**kw)
+        self.tau = tau
+        self.reg_lambda = reg_lambda
+        self.mu = mu if mu is not None else self.eps / (self.n_movies ** 2)
+        self.sigma_m = sigma_m
+        self.sigma_q = sigma_q
+        self.svd_rank = svd_rank
+        self.svd_n_iter = svd_n_iter
+
+    @property
+    def name(self):
+        return 'svrgcg'
+
+    def regularization_huber(self, Xt):
+        Xt_abs = np.abs(Xt)
+        idx_lt_mu = Xt_abs <= self.mu
+        idx_gt_mu = Xt_abs > self.mu
+
+        # Calculate Huber function, a smooth approximation of L1-norm
+        Ht = np.zeros_like(Xt)
+        Ht[idx_lt_mu] = Xt[idx_lt_mu] ** 2 / (2 * self.mu)
+        Ht[idx_gt_mu] = Xt_abs[idx_gt_mu] - self.mu / 2
+
+        return np.sum(Ht)
+
+    def regularization_huber_grad(self, Xt):
+        Xt_abs = np.abs(Xt)
+        idx_lt_mu = Xt_abs <= self.mu
+        idx_gt_mu = Xt_abs > self.mu
+
+        Ht = np.zeros_like(Xt)
+        Ht[idx_lt_mu] = Xt[idx_lt_mu] / self.mu
+        Ht[idx_gt_mu] = np.sign(Xt[idx_gt_mu])
+
+        return Ht
+
+    def full_loss_fn(self, Xt, M0):
+        G = 0.5 * np.linalg.norm(Xt - M0) ** 2
+        R = self.reg_lambda * self.regularization_huber(Xt)
+        return G + R
+
+    def _fit(self, X, y):
+        # M0 is the matrix of ratings representing the dataset of shape (n, m).
+        M0 = np.zeros((self.n_users, self.n_movies), dtype=np.float32)
+        M0[X[:, 0], X[:, 1]] = y
+        M0 += np.random.randn(*M0.shape) * self.sigma_m
+        m, d = M0.shape
+
+        # Initial iterate
+        Xs = np.eye(m, d, dtype=np.float32)
+        Xs *= self.tau / 2 / m  # nuclear norm will be tau/2
+
+        # Parameters
+        beta = 1 + self.reg_lambda / self.mu
+        c0 = self.full_loss_fn(Xs, M0)  # Initial loss (upper bound)
+        sigma2 = 1  # Variance of noise in M
+        S = math.ceil(math.log2(c0 / self.eps) + 2)  # Outer loop max
+        T = math.ceil(8 * math.log(8) / 3 * beta + 1)  # Inner loop max
+
+        k_s_gen = optim.stepsize_gen.custom(
+            lambda s: 32 * sigma2 / c0 * 2 ** (s - 1)
+        )
+
+        nuclear_norm_projection = projections.NuclearNormProjection(
+            self.tau, self.svd_rank, self.svd_n_iter)
+
+        # Loop over epochs
+        for s in range(S):
+            k_s = next(k_s_gen)
+            k_t_gen = optim.stepsize_gen.const(32)
+            eta_t_gen = optim.stepsize_gen.const(
+                self.mu / (2 * self.reg_lambda + 2 * self.mu)
+            )
+
+            # Compute snapshot gradient: Average of k_s stochastic gradients,
+            # where each stochastic gradient is Xs - M_i and M_i is a random
+            # matrix from a normal distribution with sigma_q variance
+            M_i = M0 + self.sigma_q * np.random.randn(k_s, m, d)
+            G_i = np.repeat(Xs[np.newaxis, ...], k_s, axis=0)
+            Gsnap = np.mean(G_i - M_i, axis=0)
+            del G_i, M_i
+
+            # Inner loop to generate iterates
+            Xst = Xs
+            for t in range(T):
+                k_t = next(k_t_gen)
+                eta_t = next(eta_t_gen)
+
+                # Estimate G(X) gradient. Note that we don't need to
+                # sample k_t stochastic grads here and average them because
+                # the random parts (M_i) cancel out in this case.
+                Gst_hat = Xst - Xs + Gsnap
+
+                # Calculate gradient of the smooth regularizer R(X)
+                Gst_R = self.regularization_huber_grad(Xst)
+
+                # Step in the direction of the negative total gradient
+                At = Xst - (1 / 2 / beta / eta_t) * (Gst_hat + Gst_R)
+
+                # Project onto nuclear norm ball
+                Vt = nuclear_norm_projection(At)
+
+                # Update current iterate
+                Xst = (1 - eta_t) * Xst + eta_t * Vt
+                del Gst_hat, Gst_R, At, Vt
+
+            Xs = Xst
+            yield Xs
 
 
 ###
