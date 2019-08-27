@@ -1,4 +1,5 @@
 import numpy as np
+import scipy.sparse.linalg
 
 
 class MetricInducedSimplexProjection(object):
@@ -140,3 +141,36 @@ class SimplexProjection(object):
             else:
                 lower = theta
         return w
+
+
+class NuclearNormProjection(object):
+    """
+    Projects a matrix on to the nuclear norm ball with radius tau.
+    """
+
+    def __init__(self, tau, rank=None, maxiter=None):
+        """
+        :param tau: Maximal nuclear norm
+        :param rank: Maximal rank of SVD for projection
+        :param maxiter: Maximal iterations for SVD computation
+        """
+        self.tau = tau
+        self.rank = rank
+        self.maxiter = maxiter
+        self.simplex_proj = SimplexProjection(method='sort', z=tau)
+
+    def __call__(self, X):
+        rank = min(X.shape) - 1 if self.rank is None else self.rank
+
+        U, s, Vt = scipy.sparse.linalg.svds(
+            X, k=rank, maxiter=self.maxiter, which='LM',
+            return_singular_vectors=True,
+        )
+
+        # Project s onto tau-scaled simplex
+        sproj = self.simplex_proj(s)
+
+        # Reconstruct with reverse SVD
+        Xproj = np.dot(U, np.dot(np.diag(sproj), Vt))
+
+        return Xproj
