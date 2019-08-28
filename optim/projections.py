@@ -82,11 +82,10 @@ class SimplexProjection(object):
         proj_fn = self.__getattribute__(f'projection_simplex_{self.method}')
         return proj_fn(x, **kwargs)
 
-    @staticmethod
-    def projection_simplex_sort(v, z=1):
+    def projection_simplex_sort(self, v):
         n_features = v.shape[0]
         u = np.sort(v)[::-1]
-        cssv = np.cumsum(u) - z
+        cssv = np.cumsum(u) - self.z
         ind = np.arange(n_features) + 1
         cond = u - cssv / ind > 0
         rho = ind[cond][-1]
@@ -94,8 +93,7 @@ class SimplexProjection(object):
         w = np.maximum(v - theta, 0)
         return w
 
-    @staticmethod
-    def projection_simplex_pivot(v, z=1, random_state=None):
+    def projection_simplex_pivot(self, v, random_state=None):
         rs = np.random.RandomState(random_state)
         n_features = len(v)
         U = np.arange(n_features)
@@ -114,28 +112,27 @@ class SimplexProjection(object):
                 elif v[j] < v[k]:
                     L.append(j)
             drho = len(G) + 1
-            if s + ds - (rho + drho) * v[k] < z:
+            if s + ds - (rho + drho) * v[k] < self.z:
                 s += ds
                 rho += drho
                 U = L
             else:
                 U = G
-        theta = (s - z) / float(rho)
+        theta = (s - self.z) / float(rho)
         return np.maximum(v - theta, 0)
 
-    @staticmethod
-    def projection_simplex_bisection(v, z=1, tau=0.0001, max_iter=1000):
+    def projection_simplex_bisection(self, v, tau=0.0001, max_iter=1000):
         lower = 0
         upper = np.max(v)
         current = np.inf
 
         for it in range(max_iter):
-            if np.abs(current) / z < tau and current < 0:
+            if np.abs(current) / self.z < tau and current < 0:
                 break
 
             theta = (upper + lower) / 2.0
             w = np.maximum(v - theta, 0)
-            current = np.sum(w) - z
+            current = np.sum(w) - self.z
             if current <= 0:
                 upper = theta
             else:
