@@ -21,21 +21,21 @@ from optim import projections
 
 class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
     def __init__(self, n_users=1000, n_movies=1000,
-                 max_iter=750, eps=.05,
+                 max_iter=750, train_mse_tol=.05,
                  verbose=True, **kw):
         """
         Base matrix completion model.
         :param n_users: Number of users.
         :param n_movies: Number of movies.
         :param max_iter: Max number of iterations for training fit.
-        :param eps: Stop training if MSE is less than this.
+        :param train_mse_tol: Stop training if MSE is less than this.
         :param verbose: Whether to show training progress.
         """
         super().__init__()
         self.n_users = n_users
         self.n_movies = n_movies
         self.max_iter = max_iter
-        self.eps = eps
+        self.train_mse_tol = train_mse_tol
         self.verbose = verbose
 
     def loss_fn(self, Xt, X, y):
@@ -116,9 +116,9 @@ class MatrixCompletion(abc.ABC, BaseEstimator, RegressorMixin):
                 pbar.update()
 
                 t += 1
-                if t >= self.max_iter:
+                if self.max_iter and t >= self.max_iter:
                     break
-                if train_mse < self.eps:
+                if train_mse < self.train_mse_tol:
                     break
 
         # Save training results
