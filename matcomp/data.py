@@ -96,13 +96,13 @@ class SyntheticDataset(MatrixCompletionDataset):
         Y[Pmask < self.p0] = 0.
 
         N = np.random.randn(self.d, self.d) * self.sigma2_n
-        YYT = np.matmul(Y, Y.T)
+        self.YYT = np.matmul(Y, Y.T)
 
         # Create data matrix
-        self.M = YYT + N
+        self.M = self.YYT + N
 
         # Create sample tensors
-        i, j = np.nonzero(YYT)
+        i, j = np.nonzero(self.YYT)
         self.X = np.vstack((i, j)).T
         self.y = self.M[i, j]
 
