@@ -145,16 +145,19 @@ class NuclearNormProjection(object):
     Projects a matrix on to the nuclear norm ball with radius tau.
     """
 
-    def __init__(self, tau, rank=None, maxiter=None):
+    def __init__(self, tau, rank=None, maxiter=None, always_project=False):
         """
         :param tau: Maximal nuclear norm
         :param rank: Maximal rank of SVD for projection
         :param maxiter: Maximal iterations for SVD computation
+        :param always_project: Whether to project a matrix onto the nuclear
+        norm ball if it's nuclear norm is less than tau.
         """
         self.tau = tau
         self.rank = rank
         self.maxiter = maxiter
         self.simplex_proj = SimplexProjection(method='sort', z=tau)
+        self.always_project = always_project
 
     def __call__(self, X):
         rank = min(X.shape) - 1 if self.rank is None else self.rank
@@ -163,6 +166,11 @@ class NuclearNormProjection(object):
             X, k=rank, maxiter=self.maxiter, which='LM',
             return_singular_vectors=True,
         )
+
+        # If the nuclear norm is within the desired radius, no need to project
+        # unless 'always_project' is true.
+        if not self.always_project and np.sum(s) <= self.tau and np.all(s >= 0):
+            return X
 
         # Project s onto tau-scaled simplex
         sproj = self.simplex_proj(s)
