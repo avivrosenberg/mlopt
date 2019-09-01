@@ -480,32 +480,21 @@ class SVRGCGMatrixCompletion(MatrixCompletion):
                  self.full_loss_fn(M0, M0))  # Initial loss (upper bound)
         S = math.ceil(math.log2(c0 / self.eps) + 2)  # Outer loop max
         T = math.ceil(8 * math.log(8) / 3 * beta + 1)  # Inner loop max
-
-        k_s_gen = optim.stepsize_gen.custom(
-            lambda s: math.ceil(32 * self.sigma_n / c0 * 2 ** (s - 1)),
-            idx_range=range(1, 2 ** 63 - 1)
-        )
+        eta_t = self.mu / (2 * self.reg_lambda + 2 * self.mu)
+        k_s = 2**4
 
         # Loop over epochs
         for s in range(S):
-            k_s = next(k_s_gen)
-            eta_t_gen = optim.stepsize_gen.const(
-                self.mu / (2 * self.reg_lambda + 2 * self.mu)
-            )
-
             # Compute snapshot gradient: Average of k_s stochastic gradients,
             # where each stochastic gradient is Xs - M_i and M_i is a random
             # matrix from a normal distribution with sigma_q variance
             M_i = M0 + self.sigma_q * np.random.randn(k_s, m, d)
-            G_i = np.repeat(Xs[np.newaxis, ...], k_s, axis=0)
-            Gsnap = np.mean(G_i - M_i, axis=0)
-            del G_i, M_i
+            Gsnap = np.mean(Xs - M_i, axis=0)
+            del M_i
 
             # Inner loop to generate iterates
             Xst = Xs
             for t in range(T):
-                eta_t = next(eta_t_gen)
-
                 # Estimate G(X) gradient. Note that we don't need to
                 # sample k_t stochastic grads here and average them because
                 # the random parts (M_i) cancel out in this case.
