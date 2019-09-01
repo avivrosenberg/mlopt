@@ -1,3 +1,4 @@
+import math
 import os
 import pickle
 import time
@@ -5,9 +6,13 @@ import datetime as dt
 
 import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
 
 import orps.data
 import orps.models
+
+import matcomp.data
+import matcomp.models
 
 
 def orps_train(X: np.ndarray):
@@ -74,8 +79,8 @@ def orps_plot(wealth: dict, regret: dict):
     fig_regret = plt.figure()
     for name, r in regret.items():
         plt.plot(t_axis, r, label=name)
-    plt.plot(t_axis, np.log(t_axis)/t_axis, '--', label=r'$\log(t)/t$')
-    plt.plot(t_axis, np.sqrt(t_axis)/t_axis, '--', label=r'$\sqrt{t}/t$')
+    plt.plot(t_axis, np.log(t_axis) / t_axis, '--', label=r'$\log(t)/t$')
+    plt.plot(t_axis, np.sqrt(t_axis) / t_axis, '--', label=r'$\sqrt{t}/t$')
     plt.ylabel(r'Regret$(t)/t$')
     plt.xlabel('t (days)')
     plt.ylim(top=0.45)
@@ -102,10 +107,7 @@ def orps_data_plot(ds):
     return dict(data=fig)
 
 
-if __name__ == '__main__':
-    print('=== MLOPT HW3: Aviv Rosenberg & Yonatan Elul')
-    print('=== ========================================')
-
+def orps_main(out_dir):
     print('=== Runining online rebalancing portfolio selection...')
     # Load data
     ds = orps.data.EHazanPFDataset()
@@ -119,9 +121,6 @@ if __name__ == '__main__':
     figs.update(orps_data_plot(ds))
 
     # Save plots
-    timestamp = dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
-    out_dir = os.path.join('out', 'orps', timestamp)
-    os.makedirs(out_dir, exist_ok=True)
     fmt = 'pdf'
     for name, fig in figs.items():
         filename = os.path.join(out_dir, f'{name}')
@@ -132,5 +131,90 @@ if __name__ == '__main__':
     # Save models
     with open(os.path.join(out_dir, 'models.pk'), 'wb') as f:
         pickle.dump(models, f)
+
+
+def miniproject_main(out_dir):
+    print('=== Runining matrix-completion (mini-project)...')
+    d, r = 300, 10
+    sigma_n = 1.
+    ds = matcomp.data.SyntheticDataset(d, r, sigma2_n=sigma_n)
+    YYT = ds.YYT
+
+    # ds = matcomp.data.MovieLens100K()
+    # r = 2
+    # YYT = ds.samples_matrix()
+
+    tau = math.floor(np.trace(YYT))
+    eps = 0.0001 * np.linalg.norm(YYT) ** 2
+    mu = 0.1
+    max_iter = int(2e3)
+
+    X, y = ds.samples()
+    Xtrain, Xtest, ytrain, ytest = train_test_split(
+        X, y, test_size=1 / 5., random_state=1904
+    )
+
+    models = [
+        matcomp.models.SVRGCGMatrixCompletion(
+            n_users=ds.n, n_movies=ds.m, max_iter=max_iter,
+            eps=eps, tau=tau, svd_rank=r, mu=mu,
+            sigma_n=sigma_n, yield_every=1,
+        ),
+        matcomp.models.RankProjectionMatrixCompletion(
+            n_users=ds.n, n_movies=ds.m, max_iter=max_iter,
+            rank=r, proj_n_iter=10,
+        ),
+        matcomp.models.FactorizedFormMatrixCompletion(
+            n_users=ds.n, n_movies=ds.m, max_iter=max_iter,
+            rank=r
+        ),
+        matcomp.models.ConvexRelaxationMatrixCompletion(
+            n_users=ds.n, n_movies=ds.m, max_iter=max_iter,
+            tau=tau,
+        ),
+    ]
+
+    # Train
+    split = False
+    for model in models:
+        if split:
+            model.fit(Xtrain, ytrain, Xtest, ytest)
+        else:
+            model.fit(X, y)
+
+    # Plot
+    fig, ax = plt.subplots(ncols=1, nrows=2 if split else 1)
+    ax = [ax] if not split else ax
+    for model in models:
+        ax[0].plot(model.train_losses_, label=model.name.upper())
+        if split:
+            ax[1].plot(model.test_losses_, label=model.name.upper())
+    for a in ax:
+        a: plt.Axes = a
+        a.set_xlabel('iter')
+        a.set_ylabel('func. value (log)')
+        a.set_yscale('log')
+        a.legend()
+
+    fmt = 'pdf'
+    filename = os.path.join(out_dir, f'miniproj_mc')
+    fig.set_size_inches(8 * 0.8, 6 * 0.8)
+    fig.savefig(f'{filename}.{fmt}', format=fmt,
+                bbox_inches='tight', pad_inches=0.1)
+
+
+if __name__ == '__main__':
+    print('=== MLOPT HW3: Aviv Rosenberg & Yonatan Elul')
+    print('=== ========================================')
+
+    np.random.seed(42)
+
+    timestamp = dt.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+    out_dir = os.path.join('out', 'hw3', timestamp)
+    os.makedirs(out_dir, exist_ok=True)
+
+    orps_main(out_dir)
+
+    miniproject_main(out_dir)
 
     plt.show()
