@@ -347,7 +347,9 @@ class ConvexRelaxationMatrixCompletion(MatrixCompletion):
         A[-self.n_movies:, -self.n_movies:] = sigma_max * np.eye(self.n_movies)
 
         # Initialize Xt into an arbitrary point
-        Xt = np.random.randn(*ms_shape).astype(np.float32)
+        Xt = np.eye(*ms_shape, dtype=np.float32)
+        Xt *= self.tau / 2 / ms_shape[0]  # nuclear norm will be tau/2
+        yield Xt
 
         # Yield iterates
         while True:
