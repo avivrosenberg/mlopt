@@ -397,27 +397,35 @@ class SVRGCGMatrixCompletion(MatrixCompletion):
     Implements Algorithm 1 from
         Garber, D., & Kaplan, A. (2018).
         Fast Stochastic Algorithms for Low-rank and Nonsmooth Matrix Problems.
-        arXiv preprint arXiv:1809.10477.‏
+        arXiv preprint arXiv:1809.10477.
     """
 
-    def __init__(self, tau=1500, reg_lambda=2., mu=None,
-                 sigma_m=1., sigma_q=5., svd_rank=1, svd_n_iter=None, **kw):
+    def __init__(self, tau=1500, eps=1., reg_lambda=2., mu=None,
+                 sigma_n=1., sigma_q=5., svd_rank=1, svd_n_iter=None,
+                 yield_every=10, **kw):
         """
         :param tau: Nuclear norm bound
+        :param eps: Approximation error for optimization
         :param reg_lambda: Regularization factor
         :param mu: Smoothness parameter of approximate L1 regularizer
-        :param sigma_m: Variance of noise added to observations
+        :param sigma_n: Variance of noise added to observations
         :param sigma_q: Variance of noise for stochastic gradients
+        :param yield_every: Yield (produce) a new iterate every this-number
+        of iterations of the inner loop. Set to None to only yield on outer
+        loop (epoch). Set to 1 to yield every inner-loop iterate.
         :param kw: Extra args for base class
         """
         super().__init__(**kw)
+        # TODO: Validation
         self.tau = tau
+        self.eps = eps
         self.reg_lambda = reg_lambda
-        self.mu = mu if mu is not None else self.eps / (self.n_movies ** 2)
-        self.sigma_m = sigma_m
+        self.mu = mu if mu is not None else eps / (self.n_movies ** 2)
+        self.sigma_n = sigma_n
         self.sigma_q = sigma_q
         self.svd_rank = svd_rank
         self.svd_n_iter = svd_n_iter
+        self.yield_every = yield_every
 
     @property
     def name(self):
@@ -426,7 +434,7 @@ class SVRGCGMatrixCompletion(MatrixCompletion):
     def regularization_huber(self, Xt):
         Xt_abs = np.abs(Xt)
         idx_lt_mu = Xt_abs <= self.mu
-        idx_gt_mu = Xt_abs > self.mu
+        idx_gt_mu = ~idx_lt_mu
 
         # Calculate Huber function, a smooth approximation of L1-norm
         Ht = np.zeros_like(Xt)
@@ -438,7 +446,7 @@ class SVRGCGMatrixCompletion(MatrixCompletion):
     def regularization_huber_grad(self, Xt):
         Xt_abs = np.abs(Xt)
         idx_lt_mu = Xt_abs <= self.mu
-        idx_gt_mu = Xt_abs > self.mu
+        idx_gt_mu = ~idx_lt_mu
 
         Ht = np.zeros_like(Xt)
         Ht[idx_lt_mu] = Xt[idx_lt_mu] / self.mu
@@ -454,32 +462,33 @@ class SVRGCGMatrixCompletion(MatrixCompletion):
     def _fit(self, X, y):
         # M0 is the matrix of ratings representing the dataset of shape (n, m).
         M0 = np.zeros((self.n_users, self.n_movies), dtype=np.float32)
+        M0 += np.random.randn(*M0.shape) * self.sigma_n
         M0[X[:, 0], X[:, 1]] = y
-        M0 += np.random.randn(*M0.shape) * self.sigma_m
         m, d = M0.shape
+
+        nuclear_norm_projection = projections.NuclearNormProjection(
+            self.tau, self.svd_rank, self.svd_n_iter, always_project=True)
 
         # Initial iterate
         Xs = np.eye(m, d, dtype=np.float32)
         Xs *= self.tau / 2 / m  # nuclear norm will be tau/2
+        yield Xs
 
         # Parameters
         beta = 1 + self.reg_lambda / self.mu
-        c0 = self.full_loss_fn(Xs, M0)  # Initial loss (upper bound)
-        sigma2 = 1  # Variance of noise in M
+        c0 = abs(self.full_loss_fn(Xs, M0) -
+                 self.full_loss_fn(M0, M0))  # Initial loss (upper bound)
         S = math.ceil(math.log2(c0 / self.eps) + 2)  # Outer loop max
         T = math.ceil(8 * math.log(8) / 3 * beta + 1)  # Inner loop max
 
         k_s_gen = optim.stepsize_gen.custom(
-            lambda s: 32 * sigma2 / c0 * 2 ** (s - 1)
+            lambda s: math.ceil(32 * self.sigma_n / c0 * 2 ** (s - 1)),
+            idx_range=range(1, 2 ** 63 - 1)
         )
-
-        nuclear_norm_projection = projections.NuclearNormProjection(
-            self.tau, self.svd_rank, self.svd_n_iter)
 
         # Loop over epochs
         for s in range(S):
             k_s = next(k_s_gen)
-            k_t_gen = optim.stepsize_gen.const(32)
             eta_t_gen = optim.stepsize_gen.const(
                 self.mu / (2 * self.reg_lambda + 2 * self.mu)
             )
@@ -495,7 +504,6 @@ class SVRGCGMatrixCompletion(MatrixCompletion):
             # Inner loop to generate iterates
             Xst = Xs
             for t in range(T):
-                k_t = next(k_t_gen)
                 eta_t = next(eta_t_gen)
 
                 # Estimate G(X) gradient. Note that we don't need to
@@ -516,8 +524,12 @@ class SVRGCGMatrixCompletion(MatrixCompletion):
                 Xst = (1 - eta_t) * Xst + eta_t * Vt
                 del Gst_hat, Gst_R, At, Vt
 
+                if self.yield_every and (t % self.yield_every == 0):
+                    yield Xst
+
             Xs = Xst
-            yield Xs
+            if not self.yield_every or (t % self.yield_every != 0):
+                yield Xs
 
 
 ###
